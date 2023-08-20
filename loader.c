@@ -33,11 +33,11 @@ void load_and_run_elf(char** exe) {
   // 6. Call the "_start" method and print the value returned from the "_start"
   if(fd != -1){
     //initialising ehdr
-    ehdr = (Elf32_Ehdr*)calloc(1,sizeof(Elf32_Ehdr));
+      // ehdr = (Elf32_Ehdr*)calloc(1,sizeof(Elf32_Ehdr));
     //initialising phdr
     phdr = (Elf32_Phdr*)calloc(1,sizeof(Elf32_Phdr));
     //reading the content of elf_header of fib.elf into ehdr
-    read(fd,ehdr,sizeof(ehdr));
+      //read(fd,ehdr,sizeof(ehdr));
     //initialising virtual_mem variable
     void* virtual_mem = NULL;
     //iterating over all the program headers in the elf file
@@ -107,22 +107,29 @@ bool elf_check_file(Elf32_Ehdr *hdr) {
 
 
 
-bool elf_check_file(Elf32_Ehdr *hdr) {
-	if(!hdr) return false;
-	if(hdr->e_ident[EI_MAG0] != ELFMAG0) {
-		ERROR("ELF Header EI_MAG0 incorrect.\n");
+bool elf_check_supported(Elf32_Ehdr *hdr) {
+	if(!elf_check_file(hdr)) {
+		ERROR("Invalid ELF File.\n");
 		return false;
 	}
-	if(hdr->e_ident[EI_MAG1] != ELFMAG1) {
-		ERROR("ELF Header EI_MAG1 incorrect.\n");
+	if(hdr->e_ident[EI_CLASS] != ELFCLASS32) {
+		ERROR("Unsupported ELF File Class.\n");
 		return false;
 	}
-	if(hdr->e_ident[EI_MAG2] != ELFMAG2) {
-		ERROR("ELF Header EI_MAG2 incorrect.\n");
+	if(hdr->e_ident[EI_DATA] != ELFDATA2LSB) {
+		ERROR("Unsupported ELF File byte order.\n");
 		return false;
 	}
-	if(hdr->e_ident[EI_MAG3] != ELFMAG3) {
-		ERROR("ELF Header EI_MAG3 incorrect.\n");
+	if(hdr->e_machine != EM_386) {
+		ERROR("Unsupported ELF File target.\n");
+		return false;
+	}
+	if(hdr->e_ident[EI_VERSION] != EV_CURRENT) {
+		ERROR("Unsupported ELF File version.\n");
+		return false;
+	}
+	if(hdr->e_type != ET_REL && hdr->e_type != ET_EXEC) {
+		ERROR("Unsupported ELF File type.\n");
 		return false;
 	}
 	return true;
@@ -138,11 +145,23 @@ int main(int argc, char** argv)
   }
   // 1. carry out necessary checks on the input ELF file
 
+  ehdr = (Elf32_Ehdr*)calloc(1,sizeof(Elf32_Ehdr));
   
-  // 2. passing it to the loader for carrying out the loading/execution
-  //Changed the argument from argv[1] to &argv[1] since the argument has to be of type of char** but in case of argv[1] the type is char*
-  load_and_run_elf(&argv[1]);
-  // 3. invoke the cleanup routine inside the loader  
-  loader_cleanup();
+  read(fd,ehdr,sizeof(ehdr));
+
+  if (elf_check_file(ehdr) && elf_check_supported(ehdr))
+  {
+    // 2. passing it to the loader for carrying out the loading/execution
+    //Changed the argument from argv[1] to &argv[1] since the argument has to be of type of char** but in case of argv[1] the type is char*
+    load_and_run_elf(&argv[1]);
+    // 3. invoke the cleanup routine inside the loader  
+    loader_cleanup();
+    
+  }
+  else
+  {
+    printf("Invalid ELF File\n")
+  }
+
   return 0;
 }
