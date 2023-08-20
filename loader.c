@@ -82,6 +82,54 @@ void load_and_run_elf(char** exe) {
   printf("User _start return value = %d\n",result);
 }
 
+
+
+bool elf_check_file(Elf32_Ehdr *hdr) {
+	if(!hdr) return false;
+	if(hdr->e_ident[EI_MAG0] != ELFMAG0) {
+		ERROR("ELF Header EI_MAG0 incorrect.\n");
+		return false;
+	}
+	if(hdr->e_ident[EI_MAG1] != ELFMAG1) {
+		ERROR("ELF Header EI_MAG1 incorrect.\n");
+		return false;
+	}
+	if(hdr->e_ident[EI_MAG2] != ELFMAG2) {
+		ERROR("ELF Header EI_MAG2 incorrect.\n");
+		return false;
+	}
+	if(hdr->e_ident[EI_MAG3] != ELFMAG3) {
+		ERROR("ELF Header EI_MAG3 incorrect.\n");
+		return false;
+	}
+	return true;
+}
+
+
+
+bool elf_check_file(Elf32_Ehdr *hdr) {
+	if(!hdr) return false;
+	if(hdr->e_ident[EI_MAG0] != ELFMAG0) {
+		ERROR("ELF Header EI_MAG0 incorrect.\n");
+		return false;
+	}
+	if(hdr->e_ident[EI_MAG1] != ELFMAG1) {
+		ERROR("ELF Header EI_MAG1 incorrect.\n");
+		return false;
+	}
+	if(hdr->e_ident[EI_MAG2] != ELFMAG2) {
+		ERROR("ELF Header EI_MAG2 incorrect.\n");
+		return false;
+	}
+	if(hdr->e_ident[EI_MAG3] != ELFMAG3) {
+		ERROR("ELF Header EI_MAG3 incorrect.\n");
+		return false;
+	}
+	return true;
+}
+
+
+
 int main(int argc, char** argv) 
 {
   if(argc != 2) {
@@ -89,6 +137,8 @@ int main(int argc, char** argv)
     exit(1);
   }
   // 1. carry out necessary checks on the input ELF file
+
+  
   // 2. passing it to the loader for carrying out the loading/execution
   //Changed the argument from argv[1] to &argv[1] since the argument has to be of type of char** but in case of argv[1] the type is char*
   load_and_run_elf(&argv[1]);
