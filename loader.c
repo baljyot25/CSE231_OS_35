@@ -32,12 +32,8 @@ void load_and_run_elf(char** exe) {
   // 5. Typecast the address to that of function pointer matching "_start" method in fib.c.
   // 6. Call the "_start" method and print the value returned from the "_start"
   if(fd != -1){
-    //initialising ehdr
-      // ehdr = (Elf32_Ehdr*)calloc(1,sizeof(Elf32_Ehdr));
     //initialising phdr
     phdr = (Elf32_Phdr*)calloc(1,sizeof(Elf32_Phdr));
-    //reading the content of elf_header of fib.elf into ehdr
-      //read(fd,ehdr,sizeof(ehdr));
     //initialising virtual_mem variable
     void* virtual_mem = NULL;
     //iterating over all the program headers in the elf file
@@ -64,6 +60,7 @@ void load_and_run_elf(char** exe) {
             if(*((uintptr_t*)(virtual_mem+i)) == ehdr->e_entry){
               //Typecasting the e_entry address to the start function pointer to facilitate the finction call in the subsequent lines
               int (*_start)() = (int (*)())*((uintptr_t*)(virtual_mem+i));
+              break;
             }
           }
           break;
@@ -82,60 +79,26 @@ void load_and_run_elf(char** exe) {
   printf("User _start return value = %d\n",result);
 }
 
-
-
-bool elf_check_file(Elf32_Ehdr *hdr) {
-	if(!hdr) return false;
+int elf_check_file(Elf32_Ehdr *hdr) {
+	if(!hdr) return 0;
 	if(hdr->e_ident[EI_MAG0] != ELFMAG0) {
-		ERROR("ELF Header EI_MAG0 incorrect.\n");
-		return false;
+		printf("ELF Header EI_MAG0 incorrect.\n");
+		return 0;
 	}
 	if(hdr->e_ident[EI_MAG1] != ELFMAG1) {
-		ERROR("ELF Header EI_MAG1 incorrect.\n");
-		return false;
+		printf("ELF Header EI_MAG1 incorrect.\n");
+		return 0;
 	}
 	if(hdr->e_ident[EI_MAG2] != ELFMAG2) {
-		ERROR("ELF Header EI_MAG2 incorrect.\n");
-		return false;
+		printf("ELF Header EI_MAG2 incorrect.\n");
+		return 0;
 	}
 	if(hdr->e_ident[EI_MAG3] != ELFMAG3) {
-		ERROR("ELF Header EI_MAG3 incorrect.\n");
-		return false;
+		printf("ELF Header EI_MAG3 incorrect.\n");
+		return 0;
 	}
-	return true;
+	return 1;
 }
-
-
-
-bool elf_check_supported(Elf32_Ehdr *hdr) {
-	if(!elf_check_file(hdr)) {
-		ERROR("Invalid ELF File.\n");
-		return false;
-	}
-	if(hdr->e_ident[EI_CLASS] != ELFCLASS32) {
-		ERROR("Unsupported ELF File Class.\n");
-		return false;
-	}
-	if(hdr->e_ident[EI_DATA] != ELFDATA2LSB) {
-		ERROR("Unsupported ELF File byte order.\n");
-		return false;
-	}
-	if(hdr->e_machine != EM_386) {
-		ERROR("Unsupported ELF File target.\n");
-		return false;
-	}
-	if(hdr->e_ident[EI_VERSION] != EV_CURRENT) {
-		ERROR("Unsupported ELF File version.\n");
-		return false;
-	}
-	if(hdr->e_type != ET_REL && hdr->e_type != ET_EXEC) {
-		ERROR("Unsupported ELF File type.\n");
-		return false;
-	}
-	return true;
-}
-
-
 
 int main(int argc, char** argv) 
 {
@@ -144,24 +107,22 @@ int main(int argc, char** argv)
     exit(1);
   }
   // 1. carry out necessary checks on the input ELF file
-
-  ehdr = (Elf32_Ehdr*)calloc(1,sizeof(Elf32_Ehdr));
-  
+  //initialising ehdr
+  ehdr = (Elf32_Ehdr*)malloc(sizeof(Elf32_Ehdr));
+  //opening the elf file which is in argv[1]
+  fd = open(argv[1],O_RDONLY);
+  //reading the content of elf_header of fib.elf into ehdr
   read(fd,ehdr,sizeof(ehdr));
-
-  if (elf_check_file(ehdr) && elf_check_supported(ehdr))
-  {
-    // 2. passing it to the loader for carrying out the loading/execution
-    //Changed the argument from argv[1] to &argv[1] since the argument has to be of type of char** but in case of argv[1] the type is char*
-    load_and_run_elf(&argv[1]);
-    // 3. invoke the cleanup routine inside the loader  
-    loader_cleanup();
-    
+  //calling the function to check the validity of the elf file
+  int c = elf_check_file(ehdr);
+  if(c == 0){
+    printf("The elf file is not valid!");
+    exit(1);
   }
-  else
-  {
-    printf("Invalid ELF File\n")
-  }
-
+  // 2. passing it to the loader for carrying out the loading/execution
+  //Changed the argument from argv[1] to &argv[1] since the argument has to be of type of char** but in case of argv[1] the type is char*
+  load_and_run_elf(&argv[1]);
+  // 3. invoke the cleanup routine inside the loader  
+  loader_cleanup();
   return 0;
 }
