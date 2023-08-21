@@ -5,82 +5,70 @@ Elf32_Phdr *phdr;
 int fd;
 
 //prototyping the start function of fib.c, required for the typecasting if the e_entry address to _start() function pointer
-int _start();
+extern int _start();
+
 //printf("Address of _start: %p\n", (int *)_start);
 /*
  * release memory and other cleanups
  */
 void loader_cleanup() {
   free(ehdr);
+  ehdr = NULL;
   free(phdr);
+  phdr = NULL;
 }
 
 /*
  * Load and run the ELF executable file
  */
-void load_and_run_elf(char** exe) {
+void load_and_run_elf(char** argv) {
   //used *exe since exe is pointer to argv[1] so to access the argv[1] value we are dereferencing the exe pointer
-  //fd = open(exe[1], O_RDONLY);
-  FILE *elf_file = fopen(exe[1],"rb");
-  if(elf_file == NULL){
-    printf("fopen\n");
-    exit(2);
-  }
-  ehdr = (Elf32_Ehdr*)calloc(1,sizeof(Elf32_Ehdr));
-  fread(ehdr,1,sizeof(Elf32_Ehdr),elf_file);
+  fd = open(argv[1], O_RDONLY);
   if(fd != -1){
-    //initialising phdr
-    /* ehdr = (Elf32_Ehdr*)calloc(1,sizeof(Elf32_Ehdr));
-    lseek(fd,0,SEEK_SET);
-    int c1 = read(fd,ehdr,sizeof(ehdr));
-    if(c1==-1){
+    //initialising ehdr
+    ehdr = (Elf32_Ehdr*)malloc(sizeof(Elf32_Ehdr));
+    //lseek(fd,0,SEEK_SET);
+    if(read(fd,ehdr,sizeof(Elf32_Ehdr)) != sizeof(Elf32_Ehdr)){
       printf("Error!");
       exit(2);
-    } */
-    phdr = (Elf32_Phdr*)calloc(1,sizeof(Elf32_Phdr));
-    //initialising virtual_mem variable
-    void* virtual_mem = NULL;
+    }
+    //initialising phdr
+    phdr = (Elf32_Phdr*)malloc(sizeof(Elf32_Phdr));
     //iterating over all the program headers in the elf file
     for(int i = 0; i < ehdr->e_phnum;i++){
       //positioning the file pointer to the section from where the program header table starts
-      fseek(elf_file,(ehdr->e_phoff + i*ehdr->e_phentsize),SEEK_SET);
+      lseek(fd,(ehdr->e_phoff + i*ehdr->e_phentsize),SEEK_SET);
       //reading the segment and making the phdr point to the segment
-      fread(phdr,1,sizeof(Elf32_Phdr),elf_file);
-      printf("2\n");
+      read(fd,phdr,sizeof(Elf32_Phdr));
       //comparing to see f the phdr p_type is of type "PT_LOAD" (type "PT_LOAD" has value 1)
-      printf("%d\n",phdr->p_type);
-      if((unsigned int)phdr->p_type == 1){
-        printf("3\n");
+      if(phdr->p_type == PT_LOAD){
+        /* printf("%u\n",phdr->p_vaddr);
+        printf("%u\n",ehdr->e_entry);
+        printf("%u\n",phdr->p_vaddr + phdr->p_memsz); */
         //checking whether the e_entry lies in the segment corresponding to the prgram header
         if((phdr->p_vaddr < ehdr->e_entry) && (ehdr->e_entry < (phdr->p_vaddr + phdr->p_memsz))){
           //allocating the mmap to the virtual_mem variable
-          virtual_mem = mmap(NULL, phdr->p_memsz, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_ANONYMOUS|MAP_PRIVATE, 0, 0);
-
-          printf(" vitural mem %d\n",*((int *)virtual_mem));
-          
-          //Positioning the pointer to the segment offset
-          fseek(elf_file,phdr->p_offset,SEEK_SET);
-          //setting the value of virtual_mem to the content of the segment corresponding to the program header in which the e_entry is present
-          fread(virtual_mem,1,sizeof(phdr->p_memsz),elf_file);
-
-          printf(" vitural mem %d\n",*((int *)virtual_mem));
-          printf("p_vaddr %u \n",phdr->p_vaddr);
-          printf("%u\n",ehdr->e_entry);
-          //int (*_start)() = (int (*)())(uintptr_t*)ehdr->e_entry;
-          //size_t num = (phdr->p_memsz)/(sizeof(unsigned int));
+          void* virtual_mem = mmap((void*)&(phdr->p_vaddr), phdr->p_memsz, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_ANONYMOUS|MAP_PRIVATE, fd, phdr->p_offset);
+          //throws error virtual_mem is not allocated properly
+          if(virtual_mem == MAP_FAILED){
+            printf("Error in vitual_mem");
+            return;
+            exit(2);
+          }
           //Iterating over the contents of virtual_mem to reach the e_entry address
-          for(int i = phdr->p_vaddr;i< phdr->p_vaddr + phdr->p_memsz;i++){
-            printf("2nd loop\n");
-            printf("%u\n",ehdr->e_entry);
-            printf("%d\n",i);
+          /* size_t offset_for_vmem = ehdr->e_entry - phdr->p_vaddr;
+          int (*_start)() = (int (*)())((char*)virtual_mem + offset_for_vmem);
+          _start(); */
+          for(int i = phdr->p_vaddr ; i < (phdr->p_vaddr + phdr->p_memsz) ; i++){
+              printf("2nd loop\n");
+              printf("%u\n",ehdr->e_entry);
+              printf("%d\n",i);
             //Checking the content of virtual_mem at index is equal to e_entry address or not
             if(i == ehdr->e_entry){
               printf("Entrypoint found!\n");
+              printf("%lu\n",*((uintptr_t*)(virtual_mem+i)));
               //Typecasting the e_entry address to the start function pointer to facilitate the finction call in the subsequent lines
-              // int (*_start)() =(uintptr_t*) i;
-              int (*_start)() = (int (*)())((uintptr_t)i);
-              // printf("Address of _start: %p\n", (void *)_start);
-
+              int (*_start)() = (int (*)())*((uintptr_t*)(virtual_mem + i));
               break;  
             }
           }
@@ -92,9 +80,7 @@ void load_and_run_elf(char** exe) {
   else{
     printf("Error!!");
   }
-  
-  //printf("3\n");
-  // printf("Address of _start: %p\n", (void *)_start);
+  close(fd);
   int result = _start();
   printf("User _start return value = %d\n",result);
 }
@@ -130,7 +116,7 @@ int main(int argc, char** argv)
   }
   // 1. carry out necessary checks on the input ELF file
   //initialising ehdr
-  ehdr = (Elf32_Ehdr*)calloc(1,sizeof(Elf32_Ehdr));
+  ehdr = (Elf32_Ehdr *)malloc(sizeof(Elf32_Ehdr));
   //opening the elf file which is in argv[1]
   fd = open(argv[1],O_RDONLY);
   //reading the content of elf_header of fib.elf into ehdr
@@ -141,7 +127,8 @@ int main(int argc, char** argv)
     printf("The elf file is not valid!");
     exit(1);
   }
-  free(ehdr);
+  loader_cleanup();
+  close(fd);
   // 2. passing it to the loader for carrying out the loading/execution
   //Changed the argument from argv[1] to &argv[1] since the argument has to be of type of char** but in case of argv[1] the type is char*
   load_and_run_elf(argv);
