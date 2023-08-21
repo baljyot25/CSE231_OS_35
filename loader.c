@@ -6,7 +6,7 @@ int fd;
 
 //prototyping the start function of fib.c, required for the typecasting if the e_entry address to _start() function pointer
 int _start();
-
+//printf("Address of _start: %p\n", (int *)_start);
 /*
  * release memory and other cleanups
  */
@@ -55,19 +55,33 @@ void load_and_run_elf(char** exe) {
         if((phdr->p_vaddr < ehdr->e_entry) && (ehdr->e_entry < (phdr->p_vaddr + phdr->p_memsz))){
           //allocating the mmap to the virtual_mem variable
           virtual_mem = mmap(NULL, phdr->p_memsz, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_ANONYMOUS|MAP_PRIVATE, 0, 0);
+
+          printf(" vitural mem %d\n",*((int *)virtual_mem));
+          
           //Positioning the pointer to the segment offset
           fseek(elf_file,phdr->p_offset,SEEK_SET);
           //setting the value of virtual_mem to the content of the segment corresponding to the program header in which the e_entry is present
           fread(virtual_mem,1,sizeof(phdr->p_memsz),elf_file);
+
+          printf(" vitural mem %d\n",*((int *)virtual_mem));
+          printf("p_vaddr %u \n",phdr->p_vaddr);
+          printf("%u\n",ehdr->e_entry);
           //int (*_start)() = (int (*)())(uintptr_t*)ehdr->e_entry;
           //size_t num = (phdr->p_memsz)/(sizeof(unsigned int));
           //Iterating over the contents of virtual_mem to reach the e_entry address
-          for(int i = 0;i<phdr->p_filesz;i++){
+          for(int i = phdr->p_vaddr;i< phdr->p_vaddr + phdr->p_memsz;i++){
+            printf("2nd loop\n");
+            printf("%u\n",ehdr->e_entry);
+            printf("%d\n",i);
             //Checking the content of virtual_mem at index is equal to e_entry address or not
-            if(*((uintptr_t*)(virtual_mem+i)) == ehdr->e_entry){
+            if(i == ehdr->e_entry){
+              printf("Entrypoint found!\n");
               //Typecasting the e_entry address to the start function pointer to facilitate the finction call in the subsequent lines
-              int (*_start)() = (int (*)())*((uintptr_t*)(virtual_mem+i));
-              break;
+              // int (*_start)() =(uintptr_t*) i;
+              int (*_start)() = (int (*)())((uintptr_t)i);
+              // printf("Address of _start: %p\n", (void *)_start);
+
+              break;  
             }
           }
           break;
@@ -80,6 +94,7 @@ void load_and_run_elf(char** exe) {
   }
   
   //printf("3\n");
+  // printf("Address of _start: %p\n", (void *)_start);
   int result = _start();
   printf("User _start return value = %d\n",result);
 }
