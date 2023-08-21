@@ -5,7 +5,6 @@ Elf32_Phdr *phdr;
 int fd;
 
 //prototyping the start function of fib.c, required for the typecasting if the e_entry address to _start() function pointer
-extern int _start();
 
 //printf("Address of _start: %p\n", (int *)_start);
 /*
@@ -56,22 +55,23 @@ void load_and_run_elf(char** argv) {
             exit(2);
           }
           //Iterating over the contents of virtual_mem to reach the e_entry address
-          /* size_t offset_for_vmem = ehdr->e_entry - phdr->p_vaddr;
-          int (*_start)() = (int (*)())((char*)virtual_mem + offset_for_vmem);
-          _start(); */
-          for(int i = phdr->p_vaddr ; i < (phdr->p_vaddr + phdr->p_memsz) ; i++){
+          //size_t offset_for_vmem = ehdr->e_entry - phdr->p_vaddr;
+          //int (*_start)() = (int (*)())*((uintptr_t*)&(ehdr->e_entry));
+          //int (*start_func)(void) = (int(*)(void))ehdr->e_entry;
+          //_start();
+          /* for(int i = phdr->p_vaddr ; i < (phdr->p_vaddr + phdr->p_memsz) ; i++){
               printf("2nd loop\n");
               printf("%u\n",ehdr->e_entry);
               printf("%d\n",i);
             //Checking the content of virtual_mem at index is equal to e_entry address or not
             if(i == ehdr->e_entry){
               printf("Entrypoint found!\n");
-              printf("%lu\n",*((uintptr_t*)(virtual_mem+i)));
+              printf("%d\n",*((int*)(virtual_mem+i)));
               //Typecasting the e_entry address to the start function pointer to facilitate the finction call in the subsequent lines
               int (*_start)() = (int (*)())*((uintptr_t*)(virtual_mem + i));
               break;  
             }
-          }
+          } */
           break;
         }
       }
@@ -81,7 +81,10 @@ void load_and_run_elf(char** argv) {
     printf("Error!!");
   }
   close(fd);
-  int result = _start();
+  int (*start_func)(void) = (int(*)(void))(intptr_t)(ehdr->e_entry);
+  start_func(); //seg fault line
+  printf("1\n");
+  int result = start_func();
   printf("User _start return value = %d\n",result);
 }
 
