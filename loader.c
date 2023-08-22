@@ -3,9 +3,9 @@
 Elf32_Ehdr *ehdr;
 Elf32_Phdr *phdr;
 int fd;
-// int _start;
 
 //prototyping the start function of fib.c, required for the typecasting if the e_entry address to _start() function pointer
+int _start(void);
 
 //printf("Address of _start: %p\n", (int *)_start);
 /*
@@ -21,24 +21,11 @@ void loader_cleanup() {
 /*
  * Load and run the ELF executable file
  */
-
-void print_phdr_contents(Elf32_Phdr *phdr) {
-    printf("Segment type: 0x%X\n", phdr->p_type);
-    printf("File offset: 0x%X\n", phdr->p_offset);
-    printf("pvaddr : 0x%X\n", phdr->p_vaddr);
-    printf("Physical address: 0x%X\n", phdr->p_paddr);
-    printf("Size in file: 0x%X\n", phdr->p_filesz);
-    printf("memsz: 0x%X\n", phdr->p_memsz);
-    printf("Segment flags: 0x%X\n", phdr->p_flags);
-    printf("Alignment: 0x%X\n", phdr->p_align);
-}
-
-
-
 void load_and_run_elf(char** argv) {
   //used *exe since exe is pointer to argv[1] so to access the argv[1] value we are dereferencing the exe pointer
+  size_t offset_vmem;
+  void* virtual_mem;
   fd = open(argv[1], O_RDONLY);
-  
   if(fd != -1){
     //initialising ehdr
     ehdr = (Elf32_Ehdr*)malloc(sizeof(Elf32_Ehdr));
@@ -55,21 +42,29 @@ void load_and_run_elf(char** argv) {
       lseek(fd,(ehdr->e_phoff + i*ehdr->e_phentsize),SEEK_SET);
       //reading the segment and making the phdr point to the segment
       read(fd,phdr,sizeof(Elf32_Phdr));
-
-      
       //comparing to see f the phdr p_type is of type "PT_LOAD" (type "PT_LOAD" has value 1)
       if(phdr->p_type == PT_LOAD){
         /* printf("%u\n",phdr->p_vaddr);
         printf("%u\n",ehdr->e_entry);
         printf("%u\n",phdr->p_vaddr + phdr->p_memsz); */
         //checking whether the e_entry lies in the segment corresponding to the prgram header
-
-        print_phdr_contents(phdr);
-        printf("ehdr_entry: 0x%X\n", ehdr->e_entry);
-        printf("----\n");
         if((phdr->p_vaddr < ehdr->e_entry) && (ehdr->e_entry < (phdr->p_vaddr + phdr->p_memsz))){
           //allocating the mmap to the virtual_mem variable
-          lseek(fd,(ehdr->e_phoff + i*ehdr->e_phentsize),SEEK_SET);
+          virtual_mem = mmap((void*)(phdr->p_vaddr), phdr->p_memsz, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_FIXED, fd, phdr->p_offset);
+          //throws error virtual_mem is not allocated properly
+          if(virtual_mem == MAP_FAILED){
+            printf("Error in vitual_mem");
+            return;
+            exit(2);
+          }
+          //Iterating over the contents of the segment pointed to by the phdr to reach the e_entry address
+          for(int i = phdr->p_vaddr ; i < (phdr->p_vaddr + phdr->p_memsz) ; i++){
+            if(i == ehdr->e_entry){
+              //Setting the offset value, from the virtual_mem starting address, where the e_entry is located inside the virtual_mem
+              offset_vmem = i - phdr->p_vaddr;
+              break;  
+            }
+          }
           break;
         }
       }
@@ -78,26 +73,13 @@ void load_and_run_elf(char** argv) {
   else{
     printf("Error!!");
   }
-  void* virtual_mem = mmap(NULL, phdr->p_filesz, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_ANONYMOUS|MAP_PRIVATE, 0, 0);
-  //throws error virtual_mem is not allocated properly
-  if(virtual_mem == MAP_FAILED){
-    printf("Error in vitual_mem");
-    return;
-    exit(2);
-  }
-  ssize_t bytes_read = read(fd, virtual_mem, phdr->p_filesz);
-  printf("Bytes read: %d\n", bytes_read);
-  printf("virtual mem created: %p\n\n\n", virtual_mem);
-  printf("pvaddr : 0x%X\n",((Elf32_Phdr *) virtual_mem)->p_vaddr);
-  printf("virtual without offset%p\n", virtual_mem );
-  printf("virtual with offset%p\n", virtual_mem + (ehdr->e_entry -  phdr->p_vaddr));
-  printf("ehdr_entry in int %d\n",(int)ehdr->e_entry);
-  int (*_start)(void) = (int(*)(void))(virtual_mem + (ehdr->e_entry -  phdr->p_vaddr));
-  // // int (*start_func)(void) = (int(*)(void))(intptr_t)(ehdr->e_entry);
-  // // start_func(); //seg fault line
-  // printf("1\n");
+  //Closing the file
+  close(fd);
+  //Typecasting the e_entry address to the start function pointer to facilitate the function call in the subsequent lines
+  int (*_start)() = (int (*)())((char*)virtual_mem + offset_vmem);
+  _start();
   int result = _start();
-  // printf("User _start return value = %d\n",result);
+  printf("User _start return value = %d\n",result);
 }
 
 int elf_check_file(Elf32_Ehdr *hdr) {
