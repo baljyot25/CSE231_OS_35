@@ -57,14 +57,8 @@ void load_and_run_elf(char** argv) {
             return;
             exit(2);
           }
-          //Iterating over the contents of the segment pointed to by the phdr to reach the e_entry address
-          for(int i = phdr->p_vaddr ; i < (phdr->p_vaddr + phdr->p_memsz) ; i++){
-            if(i == ehdr->e_entry){
-              //Setting the offset value, from the virtual_mem starting address, where the e_entry is located inside the virtual_mem
-              offset_vmem = i - phdr->p_vaddr;
-              break;  
-            }
-          }
+          offset_vmem = ehdr->e_entry - phdr->p_vaddr;
+          
           break;
         }
       }
@@ -77,7 +71,7 @@ void load_and_run_elf(char** argv) {
   close(fd);
   //Typecasting the e_entry address to the start function pointer to facilitate the function call in the subsequent lines
   int (*_start)() = (int (*)())((char*)virtual_mem + offset_vmem);
-  _start();
+  // _start();
   int result = _start();
   printf("User _start return value = %d\n",result);
 }
