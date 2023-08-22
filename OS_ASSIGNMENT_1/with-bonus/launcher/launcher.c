@@ -1,1 +1,17 @@
-//testing
+#include "../loader/loader.h"
+
+int main(int argc, char** argv) 
+{
+  if(argc != 2) {
+    printf("Usage: %s <ELF Executable> \n",argv[0]);
+    exit(1);
+  }
+  // 1. carry out necessary checks on the input ELF file
+  //initialising ehdr
+  // 2. passing it to the loader for carrying out the loading/execution
+  //Changed the argument from argv[1] to &argv[1] since the argument has to be of type of char** but in case of argv[1] the type is char*
+  load_and_run_elf(argv);
+  // 3. invoke the cleanup routine inside the loader  
+  loader_cleanup();
+  return 0;
+}
