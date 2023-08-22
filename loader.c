@@ -105,8 +105,8 @@ int elf_check_file(Elf32_Ehdr *hdr) {
 
 int main(int argc, char** argv) 
 {
-  printf("%d\n",argc);
-  printf("Provided elf file: %s\n",argv[1]);
+  // printf("%d\n",argc);
+  // printf("Provided elf file: %s\n",argv[1]);
   if(argc != 2) {
     printf("Usage: %s <ELF Executable> \n",argv[0]);
     exit(1);
