@@ -65,7 +65,7 @@ int main(int argc, char** argv)
       printf("The elf file header couldn't be read!");
       exit(1);
     }
-    if(elf_check_supported(ehdr1) == 0){
+    if(elf_check_file(ehdr1) == 0){
       printf("The elf file is not valid!");
       exit(2);
     }
