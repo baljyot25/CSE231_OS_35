@@ -3,31 +3,26 @@
 Elf32_Ehdr *ehdr1;
 int file;
 
-//Function to check the magic number of the elf file
+//Function to check the validity of the elf file
 int elf_check_file(Elf32_Ehdr *hdr) {
 	if(!hdr) return 0;
 	if(hdr->e_ident[EI_MAG0] != ELFMAG0) {
 		printf("ELF Header EI_MAG0 incorrect.\n");
+		printf("Invalid ELF File.\n");
 		return 0;
 	}
 	if(hdr->e_ident[EI_MAG1] != ELFMAG1) {
 		printf("ELF Header EI_MAG1 incorrect.\n");
+		printf("Invalid ELF File.\n");
 		return 0;
 	}
 	if(hdr->e_ident[EI_MAG2] != ELFMAG2) {
 		printf("ELF Header EI_MAG2 incorrect.\n");
+		printf("Invalid ELF File.\n");
 		return 0;
 	}
 	if(hdr->e_ident[EI_MAG3] != ELFMAG3) {
 		printf("ELF Header EI_MAG3 incorrect.\n");
-		return 0;
-	}
-	return 1;
-}
-
-//Function to check the validity of the elf file
-int elf_check_supported(Elf32_Ehdr *hdr) {
-	if(elf_check_file(hdr) == 0) {
 		printf("Invalid ELF File.\n");
 		return 0;
 	}
