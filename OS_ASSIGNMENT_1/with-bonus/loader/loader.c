@@ -4,7 +4,7 @@ Elf32_Ehdr *ehdr;
 Elf32_Phdr *phdr;
 int fd;
 
-//Function to check the magic number of the elf file
+//Function to check the magic number of the elf file and the validity of the elf file
 int elf_check_file(Elf32_Ehdr *hdr) {
 	if(!hdr) return 0;
 	if(hdr->e_ident[EI_MAG0] != ELFMAG0) {
@@ -23,11 +23,6 @@ int elf_check_file(Elf32_Ehdr *hdr) {
 		printf("ELF Header EI_MAG3 incorrect.\n");
 		return 0;
 	}
-	return 1;
-}
-
-//Function to check the validity of the elf file
-int elf_check_supported(Elf32_Ehdr *hdr) {
 	if(elf_check_file(hdr) == 0) {
 		printf("Invalid ELF File.\n");
 		return 0;
@@ -54,6 +49,7 @@ int elf_check_supported(Elf32_Ehdr *hdr) {
 	}
 	return 1;
 }
+
 
 /*
  * release memory and other cleanups
