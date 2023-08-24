@@ -75,7 +75,7 @@ void load_and_run_elf(char** exe) {
       printf("The elf file header couldn't be read!");
       exit(1);
     }
-    if(elf_check_supported(ehdr) == 0){
+    if(elf_check_file(ehdr) == 0){
       printf("The elf file is not valid!");
       exit(2);
     }
