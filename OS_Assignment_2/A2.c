@@ -127,8 +127,7 @@ void shell_loop() {
 
             
             status = create_process_and_run(com);
-            printf("sdcs");
-            printf("status %d\n",status);
+           
 
             setenv("TZ", "Asia/Kolkata", 1);
             tzset();
