@@ -8,13 +8,14 @@
 #include <sys/mman.h>
 #include <time.h>
 #include <semaphore.h>
+#define MAX_LINE_LENGTH 10000
 
 #define MAX_INPUT_LENGTH 1024
 
 FILE *f1;
 
 int pid;
-char line[MAX_INPUT_LENGTH] = "";
+char line[MAX_LINE_LENGTH] = "";
 
 char timeofexec[50];
 struct timespec start_time_of_exec;
@@ -58,10 +59,15 @@ int create_process_and_run(char** com) {
         return 0;
     } else if (status == 0) {
        
-        execvp(com[0], com);
+        // execvp(com[0], com);
    
-        perror("execvp");
+        // perror("exec");
+        // exit(1);
+
+        if (execvp(com[0], com) == -1) {
+        fprintf(stderr, "Error executing command.\n");
         exit(1);
+    }
     } else {
      
         pid = wait(&status);
