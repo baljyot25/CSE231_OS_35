@@ -54,23 +54,6 @@ void split(char* command, char* com[10][MAX_INPUT_LENGTH]) {
     rows = j+1;
 }
 
-/* void split(char* command, char* com[10][MAX_INPUT_LENGTH]) {
-    int i = 0,j=0;
-    char* s1 = strtok(command, " ");
-    while (s1 != NULL) {
-        com[j][i] = s1;
-        s1 = strtok(NULL, " ");
-        i++;
-        if(s1 == "|"){
-            com[j][i] = NULL; 
-            j++;
-            i=0;
-        }
-    }
-    com[j][i] = NULL;
-    rows = j+1;
-} */
-
 void get_time() {
     setenv("TZ", "Asia/Kolkata", 1);
     tzset();
@@ -81,7 +64,6 @@ void get_time() {
 }
 
 void history() {
-    clock_gettime(CLOCK_MONOTONIC,&start_time_of_exec);
     fputs(line, f1);
     int c;
     rewind(f1); 
@@ -89,77 +71,68 @@ void history() {
         putchar(c);
     }
     memset(line, '\0', sizeof(line));
-    clock_gettime(CLOCK_MONOTONIC,&end_time_of_exec);
 }
-
-/* void exec_proc(int write, int read, int j, char* com[10][MAX_INPUT_LENGTH]) {
-    int status2, ret;
-    status2 = fork();
-    if (status2 < 0) {
-        perror("Process terminated abnormally!");
-        exit(2);
-    } else if (status2 == 0) {
-        if (read != 0) {
-            dup2(read, STDIN_FILENO);
-            close(read);
-        }
-        if (write != 1) {
-            dup2(write, STDOUT_FILENO);
-            close(write);
-        }
-        if (execvp(com[j][0], com[j]) == -1) {
-            perror("Error executing command.");
-            exit(1);
-        }
-    } else {
-        pid = wait(&ret);
-    }
-}
- */
 
 int create_process_and_run(char* com[][MAX_INPUT_LENGTH]) {
     int ret;
     clock_gettime(CLOCK_MONOTONIC, &start_time_of_exec);
     int j = 0;
-    int fd[2]; 
-    int prev_read = 0; 
-
-    for (j = 0; j < rows; j++) {
-        if (pipe(fd) == -1) {
-            perror("Pipe error");
-            exit(1);
-        }
-
+    if(j==0 && rows == 1){
         int status = fork();
         if (status < 0) {
-            perror("Fork error");
-            exit(2);
+            printf("Process terminated abnormally!");
+            return 0;
         } else if (status == 0) {
-            // Child process
-            if (j > 0) {
-                dup2(prev_read, STDIN_FILENO);
-                close(prev_read);
-            }
-            if (j < rows - 1) {
-                dup2(fd[1], STDOUT_FILENO);
-                close(fd[1]);
-            }
-            close(fd[0]);
             if (execvp(com[j][0], com[j]) == -1) {
-                perror("Error executing command");
+                fprintf(stderr, "Error executing command.\n");
                 exit(1);
             }
-        } else {
-            pid = wait(&ret);
-            prev_read = fd[0]; 
-            close(fd[1]);
         }
+        else{
+            pid = wait(&ret);
+            clock_gettime(CLOCK_MONOTONIC, &end_time_of_exec);
+            return 1;
+        }
+    }   
+    else{
+        int fd[rows-1][2];
+        int prev_read = 0;
+        for(j=0;j<rows;j++){   
+            if(j<rows-1 && pipe(fd[j]) == -1){
+                printf("Pipe error!");
+                exit(1);
+            }         
+            int status = fork();
+            if (status < 0) {
+                printf("Process terminated abnormally!");
+                return 0;
+            } else if (status == 0) {
+                if(j > 0){
+                    dup2(fd[j-1][0],STDIN_FILENO);
+                    close(fd[j-1][0]);
+                }
+                if(j < rows-1){
+                    dup2(fd[j][1],STDOUT_FILENO);
+                }
+                close(fd[j][0]);
+                if (execvp(com[j][0], com[j]) == -1) {
+                    fprintf(stderr, "Error executing command.\n");
+                    exit(1);
+                }
+            } else {
+                if(j==0){
+                    pid = wait(&ret);
+                }
+                else{
+                    wait(NULL);
+                }
+                close(fd[j][1]);           
+            }
+        }
+        clock_gettime(CLOCK_MONOTONIC, &end_time_of_exec);
+        return 1; 
     }
-
-    clock_gettime(CLOCK_MONOTONIC, &end_time_of_exec);
-    return 1;
 }
-
 
 static void syscall_handler(int signum) {
     if (signum == SIGINT) {
@@ -237,7 +210,7 @@ void shell_loop2(){
             sprintf(s2, "%f", duration1);
             strcat(line, s2);
             strcat(line, " milliseconds ");
-            strcat(line, "\n");
+            strcat(line, "\n"); 
         }
     }
 }
