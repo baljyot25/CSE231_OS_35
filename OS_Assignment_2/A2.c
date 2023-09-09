@@ -102,6 +102,7 @@ int create_process_and_run(char* com[][MAX_INPUT_LENGTH]) {
             return 0;
         } else if (status == 0) { //Child process
             //Executes the command by using the inbuilt execvp function
+            // printf("com[]  %s \n", com[j][0]);
             if (execvp(com[j][0], com[j]) == -1) {
                 fprintf(stderr, "Error executing command.\n");
                 exit(1);
@@ -119,50 +120,52 @@ int create_process_and_run(char* com[][MAX_INPUT_LENGTH]) {
         }
     }   
     else{
-        //If the entered command has pipes, then this block is executed
+         //If the entered command has pipes, then this block is executed
         int fd[rows-1][2];
-        int prev_read = 0;
-        for(j=0;j<rows;j++){
-            //Initialises the pipe for the concerned sub-command   
-            if(j<rows-1 && pipe(fd[j]) == -1){
+       
+        for(j=0;j<rows;j++){  
+             //Initialises the pipe for the concerned sub-command   
+            if(pipe(fd[j]) == -1){
                 printf("Pipe error!");
                 exit(1);
-            }      
-            //Creates a child process   
+            } 
+            //Creates a child process            
             int status = fork();
-            if (status < 0) { //Handles the case when the child process terminates abruptly
+            if (status < 0) {//Handles the case when the child process terminates abruptly
                 printf("Process terminated abnormally!");
                 return 0;
-            } else if (status == 0) { //Child process
+            } else if (status == 0) {//child process
                 if(j > 0){
                     //Directs the input of the commands to be taken from the STDIN
                     dup2(fd[j-1][0],STDIN_FILENO);
-                    //Closes the reading end of the pipe associated with this process
-                    close(fd[j-1][0]);
+                    
                 }
                 if(j < rows-1){
-                    //Directs the output of the commands to be sent to the STDOUT
+                     //Directs the output of the commands to be sent to the STDOUT
                     dup2(fd[j][1],STDOUT_FILENO);
+                   
                 }
-                //Closes the reading end of the pipe associated with this process
-                close(fd[j][0]);
+                //closing all the pipes that child has inherited from the parent
+                for(int i = 0;i<rows-1;i++)
+                {
+                    close(fd[j][0]);
+                    close(fd[j][1]);
 
-                //Executes the command by using the inbuilt execvp function
+                }
+                 //Executes the command by using the inbuilt execvp function
                 if (execvp(com[j][0], com[j]) == -1) {
                     fprintf(stderr, "Error executing command.\n");
                     exit(1);
                 }
-            } else { //Parent process
-                if(j==0){
-                    //Waits for the child to complete execution and stores the process ID of the child process
-                    pid = wait(&ret);
-                }
-                else{
-                    //Waits for the child to complete execution
-                    wait(NULL);
-                }
-                //Closes the writing end of the pipe associated with this process
-                close(fd[j][1]);           
+            } else {//parent process
+               
+                pid = wait(&ret); //Waits for the child to complete execution
+               //Closes the writing end of the pipe associated with this process
+                close(fd[j][1]);  
+
+                 
+
+                
             }
         }
         //Stores the end time of the execution of the child process
@@ -197,7 +200,7 @@ void shell_loop2(){
     double duration1;
     char s2[50];
     //Opens the commands.sh file and checks if the file has been opened correctly or not
-    FILE* f2 = fopen("commands.sh","r");
+    FILE* f2 = fopen("command.sh","r");
     if(f2 == NULL){
         printf("Error reading file!");
         exit(1);
@@ -218,9 +221,10 @@ void shell_loop2(){
         if (fgets(command1, MAX_INPUT_LENGTH, f2) == NULL) {
             break;
         }
-
+        //  puts(command1);
         //removes the \n character from the end of the string input and replaces it with the null terminator character '\0'
-        command1[strcspn(command1, "\n")] = '\0';
+        command1[strcspn(command1, "\r")] = '\0';
+        //  puts(command1);
 
         //Checks if the entered command is NULL;
         if (command1 == NULL) {
@@ -239,6 +243,9 @@ void shell_loop2(){
         //Parses the entered commmand and stores in the format of a 2d array
         split(command1, com1);
 
+        // printf("%d \n",com1[0][0][2]);
+        // puts(com1[0][1]);
+        //  if (strcmp(com1[0][0], "ls") == 0) printf("wow\n");
         //Checks if the command entered was history, if yes then prints the history (all commands that have been entered uptil now)
         if (strcmp(com1[0][0], "history") == 0) {
             //Stores the time at which the command execution began in the global variable timeofexec
@@ -282,7 +289,7 @@ void shell_loop2(){
             strcat(line, "\n"); 
         }
     }
-    close(f2);
+    fclose(f2);
 }
 
 //Loop for executing all the commands entered by the user at the terminal
@@ -331,6 +338,9 @@ void shell_loop() {
         //Checks if the command entered was "fileinput", if yes then redirects to shell_loop2 and executes all the commands written in the commands.sh file
         if(strcmp(command,"fileinput") == 0){
             shell_loop2();
+            
+            continue;
+
         }
         
         //Copies the entered command into a new variable for storing in history
@@ -388,7 +398,7 @@ void shell_loop() {
             strcat(line, "\n"); 
         }
     } while (status);
-    close(f1);
+    fclose(f1);
 }
 
 int main(int argc, char const* argv[]) {
