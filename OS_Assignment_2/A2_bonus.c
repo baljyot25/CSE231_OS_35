@@ -196,6 +196,12 @@ int create_process_and_run(char* com[][MAX_INPUT_LENGTH]) {
         for(j=0;j<rows;j++){  
              //Initialises the pipe for the concerned sub-command   
             if(pipe(fd[j]) == -1){
+                //closing all the previous pipe before exiting
+                for (int k=0;k<j;k++)  
+                {
+                     close (fd[j][0]);
+                     close(fd[j][1]);
+                }
                 printf("Pipe error!");
                 exit(1);
             } 
@@ -203,6 +209,12 @@ int create_process_and_run(char* com[][MAX_INPUT_LENGTH]) {
             int status = fork();
             if (status < 0) {//Handles the case when the child process terminates abruptly
                 printf("Process terminated abnormally!");
+                //closing all the previous pipe before exiting
+                for (int k=0;k<j;k++)  
+                {
+                     close (fd[j][0]);
+                     close(fd[j][1]);
+                }
                 return 0;
             } else if (status == 0) {//child process
                 if(j > 0){
@@ -221,9 +233,15 @@ int create_process_and_run(char* com[][MAX_INPUT_LENGTH]) {
                 }
                  //Executes the command by using the inbuilt execvp function
                 if (execvp(com[j][0], com[j]) == -1) {
-                    fprintf(stderr, "Error executing command.\n");
-                    exit(1);
-                }
+                    //closing all the previous pipe before exiting
+                    for (int k=0;k<j;k++)  
+                    {
+                        close (fd[j][0]);
+                        close(fd[j][1]);
+                    }
+                        fprintf(stderr, "Error executing command.\n");
+                        exit(1);
+                    }
             } else {//parent process
                 pid = wait(&ret); //Waits for the child to complete execution
                //Closes the writing end of the pipe associated with this process
@@ -360,8 +378,10 @@ void shell_loop2(){
             strcat(line, " milliseconds ");
             strcat(line, "\n"); 
         }
+        free(copiedCommand1);
     }
     fclose(f2);
+    free(command1);
 }
 
 //Loop for executing all the commands entered by the user at the terminal
@@ -480,6 +500,8 @@ void shell_loop() {
             strcat(line, " milliseconds ");
             strcat(line, "\n"); 
         }
+         free(command);
+        free(copiedCommand);
     } while (status);
     fclose(f1);
 }
