@@ -22,6 +22,8 @@ struct timespec start_time_of_exec;
 struct timespec end_time_of_exec;
 int rows;
 int flag1 = 0;
+int no_of_pipes=0;
+int no_of_ands=0;
 
 //Function to parse the command and transform it into a 2d array for easier use 
 int split(char* command, char* com[10][MAX_INPUT_LENGTH]) {
@@ -45,28 +47,48 @@ int split(char* command, char* com[10][MAX_INPUT_LENGTH]) {
     }
     
     int i = 0,j=0;
+    // printf("command %s\n", command);
     //Reading the first word of the given command and storing it in s1
     char* s1 = strtok(command, " ");
     while (s1 != NULL) {
+        com[j][i]=s1;
+        // printf("com[%d][%d]  : %s\n", j,i,com[j][i]);
+        i++;
+        
+        
         // If s1 is a pipe, then making the last element of the current row as NULL and switching to the next row
         if(s1[0] == '|'){
             com[j][i] = NULL; 
+            // printf("com[%d][%d]  : %s\n", j,i,com[j][i]);
             j++;
-            i=-1;
+            i=0;
+            no_of_pipes++;
         }
-        else{
-            //Storing the words of the command entered in a row of the 2d-array
-            if (i>=0){
-                com[j][i]=s1;
-            }
+        if (s1[0]=='&')
+        {
+             com[j][i] = NULL; 
+           // printf("com[%d][%d]  : %s\n", j,i,com[j][i]);
+            j++;
+            i=0;
+            no_of_ands++;
+
         }
+        
         s1 = strtok(NULL, " ");
-        i++;
+        
     }
     //Setting the last element of the last row as NULL
+   if (i==0)
+   {
+    rows =j;
+   }
+   else{
+    rows=j+1;
+   }
     com[j][i] = NULL;
+    // printf("com[%d][%d]  : %s\n", j,i,com[j][i]);
     //Setting the variable "rows" which stores the number of rows in the 2d array.
-    rows = j+1;
+    // rows = j+1;
 
     return 1;
 }
@@ -115,7 +137,9 @@ int create_process_and_run(char* com[][MAX_INPUT_LENGTH]) {
     }
     int j = 0;
     //Checks if the command entered has any pipes or not
-    if(j==0 && rows == 1){
+    // printf("rows %d no of ands %d\n",rows,no_of_ands);
+    if( rows == 1){
+        
         int cnt=0;
         // printf("%d",com[0][2][0]);
         while (com[0][cnt]!=NULL)
@@ -189,65 +213,219 @@ int create_process_and_run(char* com[][MAX_INPUT_LENGTH]) {
 
         }
     }   
+
     else{
+        // printf("main idhar kyu hun\n");
          //If the entered command has pipes, then this block is executed
-        int fd[rows-1][2];
-       
-        for(j=0;j<rows;j++){  
-             //Initialises the pipe for the concerned sub-command   
-            if(pipe(fd[j]) == -1){
-                //closing all the previous pipe before exiting
-                for (int k=0;k<j;k++)  
+
+        if (no_of_pipes==0)
+        {
+            
+
+            for (int k=0;k<rows;k++)
+            {
+                 int cnt=0;
+
+                //  printf("yaar k : %d\n",k);
+            // printf("%d",com[0][2][0]);
+                while (com[k][cnt]!=NULL)
                 {
-                     close (fd[j][0]);
-                     close(fd[j][1]);
+                    
+                    cnt++;
                 }
-                printf("Pipe error!");
-                exit(1);
-            } 
-            //Creates a child process            
-            int status = fork();
-            if (status < 0) {//Handles the case when the child process terminates abruptly
-                printf("Process terminated abnormally!");
-                //closing all the previous pipe before exiting
-                for (int k=0;k<j;k++)  
+
+
+                if (com[k][cnt-1][0]==38)// ascii of &
                 {
-                     close (fd[j][0]);
-                     close(fd[j][1]);
-                }
-                return 0;
-            } else if (status == 0) {//child process
-                if(j > 0){
-                    //Directs the input of the commands to be taken from the STDIN
-                    dup2(fd[j-1][0],STDIN_FILENO);
-                }
-                if(j < rows-1){
-                     //Directs the output of the commands to be sent to the STDOUT
-                    dup2(fd[j][1],STDOUT_FILENO);  
-                }
-                //closing all the pipes that child has inherited from the parent
-                for(int i = 0;i<rows-1;i++)
-                {
-                    close(fd[j][0]);
-                    close(fd[j][1]);
-                }
-                 //Executes the command by using the inbuilt execvp function
-                if (execvp(com[j][0], com[j]) == -1) {
-                    //closing all the previous pipe before exiting
-                    for (int k=0;k<j;k++)  
-                    {
-                        close (fd[j][0]);
-                        close(fd[j][1]);
+                    // printf("with &\n");
+                    flag1 = 1;
+                    com[k][cnt-1]=NULL;
+                    
+                    int status = fork(); //Creates a child process
+                    if (status < 0) { //Handles the case when the child process terminates abruptly
+                        printf("Process terminated abnormally!");
+                        return 0;
+                    } 
+                    else if (status == 0) { //Child process
+                        //Executes the command by using the inbuilt execvp function
+                        int status2=fork();
+                        if (status2<0){
+                            printf("Process child terminated abnormally!");
+                            return 0;
+                        } else if (status2==0){
+                            sleep(2);              
+                            if (execvp(com[k][0] ,com[k]) == -1) {
+                                fprintf(stderr, "Error executing command.\n");
+                                exit(1);
+                            }
+                        }
+                        _exit(0);  
                     }
-                        fprintf(stderr, "Error executing command.\n");
+                     else{ //Parent process
+                    //Waits for the child to complete execution and stores the process ID of the child process
+                    printf("[%d]%d\n",and_counter++,getpid()+k);
+                    pid = wait(&ret);
+                    //Stores the end time of the execution of the child process
+                    if(clock_gettime(CLOCK_MONOTONIC, &end_time_of_exec) == -1){
+                        printf("Error executing clock_gettime!");
                         exit(1);
                     }
-            } else {//parent process
-                pid = wait(&ret); //Waits for the child to complete execution
-               //Closes the writing end of the pipe associated with this process
-                close(fd[j][1]); 
+                    continue;
+                         }
+                    }
+                else
+                    {
+                        // printf("without &\n");
+                        int status = fork(); //Creates a child process
+                        if (status < 0) { //Handles the case when the child process terminates abruptly
+                            printf("Process terminated abnormally!");
+                            return 0;
+                        } else if (status == 0) { //Child process
+                            //Executes the command by using the inbuilt execvp function
+                        
+                            
+                            if (execvp(com[k][0], com[k]) == -1) {
+                                fprintf(stderr, "Error executing command.\n");
+                                exit(1);
+                            }
+                        }
+                        else{ //Parent process
+                            //Waits for the child to complete execution and stores the process ID of the child process
+                            pid = wait(&ret);
+                            //Stores the end time of the execution of the child process
+                            if(clock_gettime(CLOCK_MONOTONIC, &end_time_of_exec) == -1){
+                                printf("Error executing clock_gettime!");
+                                exit(1);
+                            }
+                          
+                        }
+
+                    }
+            }
+            return 1;
+        }
+        
+        
+        else{
+            int is_first_pipe=1;
+            int is_prev_pipe=0;
+            int fd[2][2];
+            int pipe_counter=0;
+             for (int k=0;k<rows;k++)
+            {
+                 int cnt=0;
+                  while (com[k][cnt]!=NULL)
+                {
+                    
+                    cnt++;
+                }
+
+                if (com[k][cnt-1][0]==38 )
+                {
+                     flag1 = 1;
+                    com[k][cnt-1]=NULL;
+                    
+                    int status = fork(); //Creates a child process
+                    if (status < 0) { //Handles the case when the child process terminates abruptly
+                        printf("Process terminated abnormally!");
+                        return 0;
+                    } 
+                    else if (status == 0) { //Child process
+                        //Executes the command by using the inbuilt execvp function
+                        int status2=fork();
+                        if (status2<0){
+                            printf("Process child terminated abnormally!");
+                            return 0;
+                        } else if (status2==0){
+                            sleep(2);              
+                            if (execvp(com[k][0] ,com[k]) == -1) {
+                                fprintf(stderr, "Error executing command.\n");
+                                exit(1);
+                            }
+                        }
+                        _exit(0);  
+                    }
+                     else{ //Parent process
+                    //Waits for the child to complete execution and stores the process ID of the child process
+                    printf("[%d]%d\n",and_counter++,getpid()+k);
+                    pid = wait(&ret);
+                    //Stores the end time of the execution of the child process
+                    if(clock_gettime(CLOCK_MONOTONIC, &end_time_of_exec) == -1){
+                        printf("Error executing clock_gettime!");
+                        exit(1);
+                    }
+                    continue;
+                         }
+
+                }
+                else 
+                {
+                
+                    com[k][cnt-1]=NULL;
+                    if (k==1)
+                    {
+                      
+                        // printf("k==1\n");
+                        pipe(fd[0]);
+                        int status = fork();
+                        if (status == 0) {//child process
+                         dup2(fd[0][1],STDOUT_FILENO); 
+                       
+                        //closing all the pipes that child has inherited from the parent
+                       
+                    //    close(fd[0][0]);
+                       close(fd[0][1]);
+                         execvp(com[1][0], com[1]) ;
+
+                        //Executes the command by using the inbuilt execvp function
+                    
+                        } else {//parent process
+                            pid = wait(&status); //Waits for the child to complete execution
+                            close(fd[0][0]);
+                       close(fd[0][1]);
+                        //Closes the writing end of the pipe associated with this process
+                           
+
+                            
+                        }
+
+
+                  
+                    
+                    }
+                    else{
+                        // printf("k==2\n");
+                         pipe(fd[1]);
+                         int status = fork();
+                         if (status == 0) {//child process
+                         dup2(fd[0][0],STDIN_FILENO); 
+                       
+                        //closing all the pipes that child has inherited from the parent
+                       
+                       
+                         execvp(com[2][0], com[2]) ;
+
+                        //Executes the command by using the inbuilt execvp function
+                    
+                        } else {//parent process
+                        
+                            pid = wait(&status); //Waits for the child to complete execution
+                        //Closes the writing end of the pipe associated with this process
+                        // printf("parent of k=2\n");
+                           
+
+                            
+                        }
+
+                    }
+
+                   
+               
+
             }
         }
+        
+       
         //Stores the end time of the execution of the child process
         if(clock_gettime(CLOCK_MONOTONIC, &end_time_of_exec) == -1){
             printf("Error executing clock_gettime!");
@@ -256,7 +434,7 @@ int create_process_and_run(char* com[][MAX_INPUT_LENGTH]) {
         return 1; 
     }
 }
-
+}
 //Handles the Crtl-C function by printing the history and then terminating the program
 static void syscall_handler(int signum) {
     if (signum == SIGINT) {
