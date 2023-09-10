@@ -21,7 +21,7 @@ char timeofexec[50];
 struct timespec start_time_of_exec;
 struct timespec end_time_of_exec;
 int rows;
-
+int flag1 = 0;
 
 //Function to parse the command and transform it into a 2d array for easier use 
 int split(char* command, char* com[10][MAX_INPUT_LENGTH]) {
@@ -125,6 +125,7 @@ int create_process_and_run(char* com[][MAX_INPUT_LENGTH]) {
         }
         if (com[j][cnt-1][0]==38)// ascii of &
         {
+            flag1 = 1;
             com[j][cnt-1]=NULL;
             //If the entered command doesn't have pipes, then this block is executed
             int status = fork(); //Creates a child process
@@ -134,28 +135,18 @@ int create_process_and_run(char* com[][MAX_INPUT_LENGTH]) {
             } 
             else if (status == 0) { //Child process
                 //Executes the command by using the inbuilt execvp function
-
                 int status2=fork();
-            
-                if (status2<0)
-                {
+                if (status2<0){
                     printf("Process child terminated abnormally!");
-                return 0;
-                }if (status2==0)
-                {
-                    
-                
+                    return 0;
+                } else if (status2==0){
+                    sleep(2);              
                     if (execvp(com[0][0] ,com[j]) == -1) {
                         fprintf(stderr, "Error executing command.\n");
                         exit(1);
                     }
                 }
-                
-                _exit(0);
-                
-            
-                
-                
+                _exit(0);                              
             }
             else{ //Parent process
                 //Waits for the child to complete execution and stores the process ID of the child process
@@ -217,19 +208,16 @@ int create_process_and_run(char* com[][MAX_INPUT_LENGTH]) {
                 if(j > 0){
                     //Directs the input of the commands to be taken from the STDIN
                     dup2(fd[j-1][0],STDIN_FILENO);
-                    
                 }
                 if(j < rows-1){
                      //Directs the output of the commands to be sent to the STDOUT
-                    dup2(fd[j][1],STDOUT_FILENO);
-                   
+                    dup2(fd[j][1],STDOUT_FILENO);  
                 }
                 //closing all the pipes that child has inherited from the parent
                 for(int i = 0;i<rows-1;i++)
                 {
                     close(fd[j][0]);
                     close(fd[j][1]);
-
                 }
                  //Executes the command by using the inbuilt execvp function
                 if (execvp(com[j][0], com[j]) == -1) {
@@ -237,14 +225,9 @@ int create_process_and_run(char* com[][MAX_INPUT_LENGTH]) {
                     exit(1);
                 }
             } else {//parent process
-               
                 pid = wait(&ret); //Waits for the child to complete execution
                //Closes the writing end of the pipe associated with this process
-                close(fd[j][1]);  
-
-                 
-
-                
+                close(fd[j][1]); 
             }
         }
         //Stores the end time of the execution of the child process
@@ -355,8 +338,14 @@ void shell_loop2(){
             get_time();
             //Executes the command
             status1 = create_process_and_run(com1);
-            //Calculates the exxecution duration of the command entered
-            duration1 = (double)((end_time_of_exec.tv_sec - start_time_of_exec.tv_sec) * 1000.0) + ((end_time_of_exec.tv_nsec - start_time_of_exec.tv_nsec) / 1000000.0);
+            if(flag1 == 1){
+                duration1 = 0.0;
+                flag1 = 0;
+            }
+            else{
+                //Calculates the exxecution duration of the command entered
+                duration1 = (double)((end_time_of_exec.tv_sec - start_time_of_exec.tv_sec) * 1000.0) + ((end_time_of_exec.tv_nsec - start_time_of_exec.tv_nsec) / 1000000.0);
+            }
             //Adds all the details of the command execution to the line variable
             strcat(line, "Command: ");
             strcat(line, copiedCommand1);
@@ -438,9 +427,9 @@ void shell_loop() {
 
         //Parses the entered commmand and stores in the format of a 2d array
         //split function returns 0 if the given iput cannot pe parsed into a 2d array
-       if (split(command, com)==0)
+        if (split(command, com)==0)
         {
-             printf("Not a valid command\n");
+            printf("Not a valid command\n");
             continue;
         }
 
@@ -469,8 +458,14 @@ void shell_loop() {
             get_time();
             //Executes the command
             status = create_process_and_run(com);
-            //Calculates the exxecution duration of the command entered
-            duration = (double)((end_time_of_exec.tv_sec - start_time_of_exec.tv_sec) * 1000.0) + ((end_time_of_exec.tv_nsec - start_time_of_exec.tv_nsec) / 1000000.0);
+            if(flag1 == 1){
+                duration = 0.0;
+                flag1 = 0;
+            }
+            else{
+                //Calculates the exxecution duration of the command entered
+                duration = (double)((end_time_of_exec.tv_sec - start_time_of_exec.tv_sec) * 1000.0) + ((end_time_of_exec.tv_nsec - start_time_of_exec.tv_nsec) / 1000000.0);
+            }
             //Adds all the details of the command execution to the line variable
             strcat(line, "Command: ");
             strcat(line, copiedCommand);
