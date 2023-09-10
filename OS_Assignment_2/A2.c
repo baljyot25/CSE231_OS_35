@@ -382,7 +382,7 @@ void shell_loop() {
         //split function returns 0 if the given iput cannot pe parsed into a 2d array
        if (split(command, com)==0)
         {
-             printf("Not a valid command\n");
+            //printf("Not a valid command\n");
             continue;
         }
 
