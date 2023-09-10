@@ -24,7 +24,26 @@ int rows;
 
 
 //Function to parse the command and transform it into a 2d array for easier use 
-void split(char* command, char* com[10][MAX_INPUT_LENGTH]) {
+int split(char* command, char* com[10][MAX_INPUT_LENGTH]) {
+    int checker=0;
+    int flag=0;
+    // printf("%d \n",command[0]);
+    while(command[checker]!='\0')
+    {
+        if (command[checker]!=32)
+        {
+           
+            flag=1;
+            break;
+        }
+        checker++;
+    }
+    if (flag==0) 
+    {
+       
+        return 0 ;
+    }
+    
     int i = 0,j=0;
     //Reading the first word of the given command and storing it in s1
     char* s1 = strtok(command, " ");
@@ -48,6 +67,8 @@ void split(char* command, char* com[10][MAX_INPUT_LENGTH]) {
     com[j][i] = NULL;
     //Setting the variable "rows" which stores the number of rows in the 2d array.
     rows = j+1;
+
+    return 1;
 }
 
 //Function to calculate start time of execution of a command
@@ -241,7 +262,11 @@ void shell_loop2(){
         strcpy(copiedCommand1, command1);
 
         //Parses the entered commmand and stores in the format of a 2d array
-        split(command1, com1);
+        // if we find a line with only emptyspace or a null character we will ignore that line
+        if (split(command1, com1)==0)
+        {
+            continue;
+        }
 
         // printf("%d \n",com1[0][0][2]);
         // puts(com1[0][1]);
@@ -354,7 +379,12 @@ void shell_loop() {
         strcpy(copiedCommand, command);
 
         //Parses the entered commmand and stores in the format of a 2d array
-        split(command, com);
+        //split function returns 0 if the given iput cannot pe parsed into a 2d array
+       if (split(command, com)==0)
+        {
+             printf("Not a valid command\n");
+            continue;
+        }
 
         //Checks if the command entered was history, if yes then prints the history (all commands that have been entered uptil now)
         if (strcmp(com[0][0], "history") == 0) {
