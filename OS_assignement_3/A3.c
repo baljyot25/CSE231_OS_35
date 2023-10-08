@@ -23,17 +23,8 @@ struct timespec end_time_of_exec;
 int ncpus = 0;
 double tslice = 0.0;
 
-typedef struct queue{
-    node* front;
-    node* end;
-};
-
-typedef struct node{
-    process* process_data;
-    process* next;
-};  
-
-typedef struct process{
+typedef struct process
+{
     char* com_name[MAX_INPUT_LENGTH];
     char* com[MAX_INPUT_LENGTH];
     pid_t pid;
@@ -41,25 +32,39 @@ typedef struct process{
     struct timespec end_time;
     double exec_time;
     double waiting_time; 
-};
-process* com_arr[MAX_INPUT_LENGTH];
+    
+}Process;
+
+typedef struct node{
+    Process * process_data;
+    struct node* next;
+}Node; 
+
+typedef struct queue{
+    Node* front;
+    Node* end;
+}Queue;
+
+
+Process* com_arr[MAX_INPUT_LENGTH];
 
 char* normal_com[MAX_INPUT_LENGTH];
 int rows = 0;
 
-queue* q;
+Queue* q;
 
 void create_queue(){
-    q = (queue*)malloc(sizeof(queue));
-    if(!queue){
+    q = (Queue*)malloc(sizeof(Queue));
+     printf("inside create_process  %d\n", q==NULL);
+    if(!q){
         printf("Memory allocation error for queue!");
         exit(7);
     }
     q->front = q->end = NULL;
 }
 
-void enqueue(process* p){
-    node* newnode = (node*)malloc(sizeof(node));
+void enqueue(Process* p){
+    Node* newnode = (Node*)malloc(sizeof(Node));
     if(!newnode){
         printf("Memmory allocation error for new node!");
         exit(8);
@@ -74,18 +79,20 @@ void enqueue(process* p){
     q->end = newnode;
 }
 
-process* dequeue(){
+Process* dequeue(){
     if(!q->front){
         printf("Scheduler Table is empty!");
         return NULL;
     }
-    node* temp = q->front;
-    process* p = temp->process_data;
+    Node* temp = q->front;
+    Process* p = temp->process_data;
     q->front = temp->next;
     if(!q->front) q->end = NULL;
     free(temp);
     return p;
 }
+
+
 
 //Function to parse the command and transform it into a 2d array for easier use 
 int split(char* command) {
