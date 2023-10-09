@@ -48,7 +48,7 @@ typedef struct queue{
 }Queue;
 
 
-Process* com_arr[MAX_INPUT_LENGTH];
+Process* com_arr;
 
 char* normal_com[MAX_INPUT_LENGTH];
 int rows = 0;
@@ -120,24 +120,22 @@ int split(char* command) {
     if (flag==0) return 0;
 
     int i = 0;
-    com_arr[rows]=(Process*)malloc(sizeof(Process));
-    com_arr[rows]->com_name = command;
+    com_arr->com_name = command;
     // Reading the first word of the given command and storing it in s1
     char* s1 = strtok(command, " ");
     printf("%s\n",s1);
     if(s1 != NULL && s1 == "submit"){
         while(s1 != NULL){
             s1 = strtok(NULL," ");
-            com_arr[rows]->com[i] = s1;
+            com_arr->com[i] = s1;
             i++;
         }
-        com_arr[rows]->com[i] = NULL;
-        enqueue(com_arr[rows]);
-        if(clock_gettime(CLOCK_MONOTONIC, &com_arr[rows]->start_time) == -1){
+        com_arr->com[i] = NULL;
+        enqueue(com_arr);
+        if(clock_gettime(CLOCK_MONOTONIC, &com_arr->start_time) == -1){
             printf("Error executing clock_gettime!");
             exit(1);
         }
-        rows++;
         return 1;
     }
     // printf("%d\n",s1==NULL);
@@ -185,9 +183,9 @@ void history() {
     // memset(line, '\0', sizeof(line));
 
 
-    for(int i = 0;i<rows;i++){
-        printf("%d. Command Name: %s\t PID: %d\t Execution Time: %f\t Waiting Time: %f\n",(i+1),com_arr[i]->com_name,(int)com_arr[i]->pid,com_arr[i]->exec_time,com_arr[i]->waiting_time);
-    }
+    // for(int i = 0;i<rows;i++){
+    //     printf("%d. Command Name: %s\t PID: %d\t Execution Time: %f\t Waiting Time: %f\n",(i+1),com_arr->com_name,(int)com_arr->pid,com_arr[i]->exec_time,com_arr[i]->waiting_time);
+    // }
 }
 
 void timer_handler(int signum){
@@ -243,22 +241,6 @@ int create_process_and_run2(Process* p) {
         }
         p->exec_time+=(double)((p->end_time.tv_sec - p->start_time.tv_sec) * 1000.0) + ((p->end_time.tv_nsec - p->start_time.tv_nsec) / 1000000.0);
         return 1;
-    }
-}
-
-//Handles the Crtl-C function by printing the history and then terminating the program
-static void syscall_handler(int signum) {
-    if (signum == SIGINT) {
-        printf("\n");
-        printf("Ctrl-C pressed....\n");
-        printf("----------------------------------------------------------------------------------------------\n");
-        printf("Program History:\n");
-        printf("\n");
-        history();
-        printf("\n");
-        printf("----------------------------------------------------------------------------------------------\n");
-        printf("Program terminated!\n");
-        exit(0);
     }
 }
 
@@ -318,6 +300,25 @@ void round_robin(){
     }
 }
 
+//Handles the Crtl-C function by printing the history and then terminating the program
+static void syscall_handler(int signum) {
+    if (signum == SIGINT) {
+        printf("\n");
+        printf("Ctrl-C pressed....\n");
+        printf("----------------------------------------------------------------------------------------------\n");
+        printf("Program History:\n");
+        printf("\n");
+        history();
+        printf("\n");
+        printf("----------------------------------------------------------------------------------------------\n");
+        printf("Program terminated!\n");
+        exit(0);
+    }
+    else if(signum == SIGUSR1){
+        round_robin();
+    }
+}
+
 //Loop for executing all the commands entered by the user at the terminal
 void shell_loop() {
     //Initialisations for the Crtl-C handler function
@@ -325,6 +326,7 @@ void shell_loop() {
     memset(&sig, 0, sizeof(sig));
     sig.sa_handler = syscall_handler;
     sigaction(SIGINT, &sig, NULL);
+    signal(SIGUSR1, syscall_handler);
 
     int status = 1;
 
@@ -379,9 +381,9 @@ void shell_loop() {
         }
         printf("%lf\n%d\n",tslice,ncpus);
         break;
-
-
     }
+
+    com_arr = (Process*)malloc(sizeof(Process));
 
     char s1[50];
     do {
@@ -421,6 +423,9 @@ void shell_loop() {
         if (type==0) continue;
         
         else if(type==2) create_process_and_run1();
+        else if(!isEmpty()){
+            raise(SIGUSR1);
+        }
         //status = create_process_and_run(com);
 
 
