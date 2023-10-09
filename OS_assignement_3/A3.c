@@ -55,10 +55,6 @@ int rows = 0;
 
 Queue* q;
 
-void alarm_call_handler(int signum){
-    kill(pid,SIGSTOP);
-}
-
 void create_queue(){
     q = (Queue*)malloc(sizeof(Queue));
      printf("inside create_process  %d\n", q==NULL);
@@ -110,6 +106,17 @@ int isEmpty(){
     }
 }
 
+void set_alarm(unsigned int ms) {
+    signal(SIGALRM, sa_handler); // Register the signal handler
+    unsigned int s = ms / 1000; // Convert milliseconds to seconds
+    unsigned int us = (ms % 1000) * 1000; // Convert remaining milliseconds to microseconds
+    struct itimerval timer;
+    timer.it_value.tv_sec = s;
+    timer.it_value.tv_usec = us;
+    timer.it_interval.tv_sec = 0;
+    timer.it_interval.tv_usec = 0;
+    setitimer(ITIMER_REAL, &timer, NULL); // Set the timer
+}
 
 //Function to parse the command and transform it into a 2d array for easier use 
 int split(char* command) {
@@ -129,18 +136,18 @@ int split(char* command) {
     // printf("%d\n",strcmp(s1,"submit"));
     if(s1 != NULL && strcmp(s1,"submit")==0){
         printf("dfef\n");
-        // while(s1 != NULL){
-        //     s1 = strtok(NULL," ");
-        //     com_arr->com[i] = s1;
-        //     i++;
-        // }
+        while(s1 != NULL){
+            s1 = strtok(NULL," ");
+            com_arr->com[i] = s1;
+            i++;
+        }
 
-        // com_arr->com[i] = NULL;
-        // enqueue(com_arr);
-        // if(clock_gettime(CLOCK_MONOTONIC, &com_arr->start_time) == -1){
-        //     printf("Error executing clock_gettime!");
-        //     exit(1);
-        // }
+        com_arr->com[i] = NULL;
+        enqueue(com_arr);
+        if(clock_gettime(CLOCK_MONOTONIC, &com_arr->start_time) == -1){
+            printf("Error executing clock_gettime!");
+            exit(1);
+        }
         return 1;
     }
     // printf("%d\n",s1==NULL);
@@ -193,10 +200,6 @@ void history() {
     // }
 }
 
-void timer_handler(int signum){
-    return;
-}
-
 //Function to run the command entered
 int create_process_and_run1(){
     int status = fork();
@@ -229,7 +232,7 @@ int create_process_and_run2(Process* p) {
             exit(1);
         }
         // Start the timer
-        alarm(tslice/1000);
+        set_alarm(tslice);
         //Executes the command by using the inbuilt execvp function
         if (execvp(p->com[0], p->com) == -1) {
             fprintf(stderr, "Error executing command.\n");
@@ -266,7 +269,7 @@ void run_existing_process(Process* p){
     //Start the timer for execution time.
     kill(p->pid,SIGCONT);
     //Wait for the tslice.
-    alarm(tslice/1000);
+    set_alarm(tslice);
     //Stop the execution of the selected process.
     kill(p->pid,SIGSTOP);
     //Stop the timer for the execution time.
@@ -322,6 +325,9 @@ static void syscall_handler(int signum) {
     else if(signum == SIGUSR1){
         round_robin();
     }
+    else if(signum == SIGALRM){
+        kill(pid,SIGSTOP);
+    }
 }
 
 //Loop for executing all the commands entered by the user at the terminal
@@ -331,7 +337,7 @@ void shell_loop() {
     memset(&sig, 0, sizeof(sig));
     sig.sa_handler = syscall_handler;
     sigaction(SIGINT, &sig, NULL);
-    printf("signal error\n");
+    // printf("signal error\n");
     signal(SIGUSR1, syscall_handler);
 
     int status = 1;
@@ -429,7 +435,7 @@ void shell_loop() {
         if (type==0) continue;
         
         else if(type==2) create_process_and_run1();
-        else if(printf("bhai\n") && !isEmpty()){
+        else if(printf("bhai\n") && isEmpty() == 0){
             raise(SIGUSR1);
         }
         //status = create_process_and_run(com);
