@@ -99,10 +99,13 @@ Process* dequeue(){
 }
 
 int isEmpty(){
+    printf("isempty start");
     if(q->front == NULL && q->end == NULL){
+        printf("isempty end");
         return 1;
     }
     else{
+        printf("isempty end");
         return 0;
     }
 }
@@ -123,19 +126,21 @@ int split(char* command) {
     com_arr->com_name = command;
     // Reading the first word of the given command and storing it in s1
     char* s1 = strtok(command, " ");
-    printf("%s\n",s1);
-    if(s1 != NULL && s1 == "submit"){
-        while(s1 != NULL){
-            s1 = strtok(NULL," ");
-            com_arr->com[i] = s1;
-            i++;
-        }
-        com_arr->com[i] = NULL;
-        enqueue(com_arr);
-        if(clock_gettime(CLOCK_MONOTONIC, &com_arr->start_time) == -1){
-            printf("Error executing clock_gettime!");
-            exit(1);
-        }
+    // printf("%d\n",strcmp(s1,"submit"));
+    if(s1 != NULL && strcmp(s1,"submit")==0){
+        printf("dfef\n");
+        // while(s1 != NULL){
+        //     s1 = strtok(NULL," ");
+        //     com_arr->com[i] = s1;
+        //     i++;
+        // }
+
+        // com_arr->com[i] = NULL;
+        // enqueue(com_arr);
+        // if(clock_gettime(CLOCK_MONOTONIC, &com_arr->start_time) == -1){
+        //     printf("Error executing clock_gettime!");
+        //     exit(1);
+        // }
         return 1;
     }
     // printf("%d\n",s1==NULL);
@@ -326,6 +331,7 @@ void shell_loop() {
     memset(&sig, 0, sizeof(sig));
     sig.sa_handler = syscall_handler;
     sigaction(SIGINT, &sig, NULL);
+    printf("signal error\n");
     signal(SIGUSR1, syscall_handler);
 
     int status = 1;
@@ -423,7 +429,7 @@ void shell_loop() {
         if (type==0) continue;
         
         else if(type==2) create_process_and_run1();
-        else if(!isEmpty()){
+        else if(printf("bhai\n") && !isEmpty()){
             raise(SIGUSR1);
         }
         //status = create_process_and_run(com);
