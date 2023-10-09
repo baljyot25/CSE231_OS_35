@@ -120,9 +120,11 @@ int split(char* command) {
     if (flag==0) return 0;
 
     int i = 0;
+    com_arr[rows]=(Process*)malloc(sizeof(Process));
     com_arr[rows]->com_name = command;
-    //Reading the first word of the given command and storing it in s1
+    // Reading the first word of the given command and storing it in s1
     char* s1 = strtok(command, " ");
+    printf("%s\n",s1);
     if(s1 != NULL && s1 == "submit"){
         while(s1 != NULL){
             s1 = strtok(NULL," ");
@@ -138,6 +140,8 @@ int split(char* command) {
         rows++;
         return 1;
     }
+    // printf("%d\n",s1==NULL);
+    normal_com[i++]=s1;
     while (s1 != NULL) {
         s1 = strtok(NULL, " ");
         normal_com[i] = s1;
@@ -210,7 +214,8 @@ int create_process_and_run1(){
 }
 
 int create_process_and_run2(Process* p) {
-    int p->pid = fork(); //Creates a child process
+     int status=p->pid = fork(); //Creates a child process
+   
     pid = p->pid;
     if (status < 0) { //Handles the case when the child process terminates abruptly
         printf("Process terminated abnormally!");
@@ -229,7 +234,7 @@ int create_process_and_run2(Process* p) {
         }
     }
     else{ //Parent process
-        wait();
+        wait(NULL);
         p->f1 = 2;
         //Stores the end time of the execution of the child process
         if(clock_gettime(CLOCK_MONOTONIC, &p->end_time) == -1){
@@ -300,7 +305,7 @@ void round_robin(){
         for(int i = 0;i<ncpus;i++){
             p = dequeue();
             if(p->f1 == 0){
-                create_process_and_run(p);
+                create_process_and_run2(p);
                 if(clock_gettime(CLOCK_MONOTONIC, &p->end_time) == -1){
                     printf("Error executing clock_gettime!");
                     exit(1);
@@ -414,6 +419,7 @@ void shell_loop() {
         //split function returns 0 if the given iput cannot pe parsed into a 2d array
         int type = split(command);
         if (type==0) continue;
+        
         else if(type==2) create_process_and_run1();
         //status = create_process_and_run(com);
 
