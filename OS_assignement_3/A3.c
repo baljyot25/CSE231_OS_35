@@ -27,14 +27,14 @@ double tslice = 0.0;
 
 typedef struct process
 {
-    char* com_name[MAX_INPUT_LENGTH];
+    char* com_name;
     char* com[MAX_INPUT_LENGTH];
     pid_t pid;
     struct timespec start_time;
     struct timespec end_time;
-    double exec_time = 0;
-    double waiting_time = 0; 
-    int f1 = 0;
+    double exec_time ;
+    double waiting_time ; 
+    int f1;
 }Process;
 
 typedef struct node{
@@ -98,12 +98,12 @@ Process* dequeue(){
     return p;
 }
 
-bool isEmpty(){
+int isEmpty(){
     if(q->front == NULL && q->end == NULL){
-        return true;
+        return 1;
     }
     else{
-        return false;
+        return 0;
     }
 }
 
@@ -125,9 +125,9 @@ int split(char* command) {
     char* s1 = strtok(command, " ");
     if(s1 != NULL && s1 == "submit"){
         while(s1 != NULL){
-            s1 = strtok(NULL," ")
+            s1 = strtok(NULL," ");
             com_arr[rows]->com[i] = s1;
-            i++
+            i++;
         }
         com_arr[rows]->com[i] = NULL;
         enqueue(com_arr[rows]);
@@ -182,7 +182,7 @@ void history() {
 
 
     for(int i = 0;i<rows;i++){
-        printf("%d. Command Name: %s\t PID: %d\t Execution Time: %f\t Waiting Time: %f\n",(i+1),com_arr[i]->com_name,(int)com_arr[i]->pid,com_arr[i]->exec_time,com_arr[i]->waiting _time);
+        printf("%d. Command Name: %s\t PID: %d\t Execution Time: %f\t Waiting Time: %f\n",(i+1),com_arr[i]->com_name,(int)com_arr[i]->pid,com_arr[i]->exec_time,com_arr[i]->waiting_time);
     }
 }
 
