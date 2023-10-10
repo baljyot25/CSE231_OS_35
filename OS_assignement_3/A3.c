@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <time.h>
+#include <sys/time.h>
 #include <signal.h>
 
 #define MAX_INPUT_LENGTH 1024
@@ -106,8 +107,10 @@ int isEmpty(){
     }
 }
 
+static void syscall_handler(int signum);
+
 void set_alarm(unsigned int ms) {
-    signal(SIGALRM, sa_handler); // Register the signal handler
+    signal(SIGALRM, syscall_handler); // Register the signal handler
     unsigned int s = ms / 1000; // Convert milliseconds to seconds
     unsigned int us = (ms % 1000) * 1000; // Convert remaining milliseconds to microseconds
     struct itimerval timer;
@@ -261,27 +264,26 @@ void run_existing_process(Process* p){
     //Add to the waiting time of the process
     p->waiting_time += (double)((p->end_time.tv_sec - p->start_time.tv_sec) * 1000.0) + ((p->end_time.tv_nsec - p->start_time.tv_nsec) / 1000000.0);
 
-    //Start the timer for the process to start execution again
-    if(clock_gettime(CLOCK_MONOTONIC, &p->start_time) == -1){
-        printf("Error executing clock_gettime!");
-        exit(1);
-    }
+    // //Start the timer for the process to start execution again
+    // if(clock_gettime(CLOCK_MONOTONIC, &p->start_time) == -1){
+    //     printf("Error executing clock_gettime!");
+    //     exit(1);
+    // }
     //Start the timer for execution time.
     kill(p->pid,SIGCONT);
-    //Wait for the tslice.
+    //Wait for the tslice and stop the process after the tslice is over.
     set_alarm(tslice);
-    //Stop the execution of the selected process.
-    kill(p->pid,SIGSTOP);
-    //Stop the timer for the execution time.
-    if(clock_gettime(CLOCK_MONOTONIC, &p->end_time) == -1){
-        printf("Error executing clock_gettime!");
-        exit(1);
+    // //Stop the timer for the execution time.
+    // if(clock_gettime(CLOCK_MONOTONIC, &p->end_time) == -1){
+    //     printf("Error executing clock_gettime!");
+    //     exit(1);
+    // }
+    if(p->f1 != 2){
+        //Add to the execution time of the process.
+        p->exec_time+=tslice;
+        //Enqueuing the process again to finsih its execution later.
+        enqueue(p);
     }
-    //Add to the execution time of the process.
-    p->exec_time+=(double)((p->end_time.tv_sec - p->start_time.tv_sec) * 1000.0) + ((p->end_time.tv_nsec - p->start_time.tv_nsec) / 1000000.0);
-    //Enqueuing the process again to finsih its execution later.
-    enqueue(p);
-
     //Starting the timer for wait time.
     if(clock_gettime(CLOCK_MONOTONIC, &p->start_time) == -1){
         printf("Error executing clock_gettime!");
@@ -308,7 +310,7 @@ void round_robin(){
     }
 }
 
-//Handles the Crtl-C function by printing the history and then terminating the program
+//Handles the default and custom signals.
 static void syscall_handler(int signum) {
     if (signum == SIGINT) {
         printf("\n");
@@ -316,7 +318,7 @@ static void syscall_handler(int signum) {
         printf("----------------------------------------------------------------------------------------------\n");
         printf("Program History:\n");
         printf("\n");
-        history();
+        // history();
         printf("\n");
         printf("----------------------------------------------------------------------------------------------\n");
         printf("Program terminated!\n");
@@ -336,7 +338,7 @@ void shell_loop() {
     struct sigaction sig;
     memset(&sig, 0, sizeof(sig));
     sig.sa_handler = syscall_handler;
-    sigaction(SIGINT, &sig, NULL);
+    sigaction(SIGINT, &sig, NULL);  
     // printf("signal error\n");
     signal(SIGUSR1, syscall_handler);
 
