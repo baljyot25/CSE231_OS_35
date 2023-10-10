@@ -83,10 +83,13 @@ void enqueue(Process* p){
 }
 
 Process* dequeue(){
+    printf("before if\n");
     if(!q->front){
+        printf("after if\n");
         printf("Scheduler Table is empty!");
         return NULL;
     }
+    printf("after after if\n");
     Node* temp = q->front;
     Process* p = temp->process_data;
     q->front = temp->next;
@@ -108,15 +111,13 @@ int isEmpty(){
 }
 
 void set_alarm(unsigned int ms) {
-    signal(SIGALRM, syscall_handler); // Register the signal handler
-    unsigned int s = ms / 1000; // Convert milliseconds to seconds
-    unsigned int us = (ms % 1000) * 1000; // Convert remaining milliseconds to microseconds
+    // Register the signal handler
+    signal(SIGALRM, syscall_handler);
     struct itimerval timer;
-    timer.it_value.tv_sec = s;
-    timer.it_value.tv_usec = us;
-    timer.it_interval.tv_sec = 0;
-    timer.it_interval.tv_usec = 0;
-    setitimer(ITIMER_REAL, &timer, NULL); // Set the timer
+    timer.it_value.tv_sec = ms / 1000;
+    timer.it_value.tv_usec = (ms % 1000) * 1000;
+    timer.it_interval.tv_sec = timer.it_interval.tv_usec = 0;
+    setitimer(ITIMER_REAL, &timer, NULL); // Set the timer
 }
 
 int create_process_and_run2(Process* p) {
@@ -133,11 +134,24 @@ int create_process_and_run2(Process* p) {
         }
         // Start the timer
         set_alarm(tslice);
+        int status2=fork();
+        if (status2<0){
+                printf("Process child terminated abnormally!");
+                return 0;
+            } else if (status2==0){
+                // sleep(2);              
+                if (execvp(com[0][0] ,com[j]) == -1) {
+                    fprintf(stderr, "Error executing command.\n");
+                    exit(1);
+                }
+            }
+            _exit(0); 
+
+
         //Executes the command by using the inbuilt execvp function
-        if (execvp(p->com[0], p->com) == -1) {
-            fprintf(stderr, "Error executing command.\n");
-            exit(1);
-        }
+
+
+        
     }
     else{ //Parent process
         wait(NULL);
@@ -215,8 +229,12 @@ void run_existing_process(Process* p){
 void round_robin(){
     while(!isEmpty()){
         Process* p = NULL;
-        int limit = (ncpus>count) ? ncpus : count;
-        for(int i = 0;i<limit;i++){
+        // int limit = (ncpus<count) ? ncpus : count;
+        for(int i = 0;i<ncpus;i++){
+            if (isEmpty())
+            {
+                break;
+            }
             p = dequeue();
             if(p->f1 == 0){
                 create_process_and_run2(p);
