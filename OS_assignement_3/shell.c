@@ -1,60 +1,6 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <time.h>
-#include <sys/time.h>
-#include <signal.h>
 #include "scheduler.c"
 
-#define MAX_INPUT_LENGTH 1024
-#define MAX_LINE_LENGTH 100000
-
-FILE *f1;
-
-pid_t parent_pid;
-pid_t pid;
-char line[MAX_LINE_LENGTH] = "";
-
-char timeofexec[50];
-struct timespec start_time_of_exec;
-struct timespec end_time_of_exec;
-
-int ncpus = 0;
-double tslice = 0.0;
-
-typedef struct process
-{
-    char* com_name;
-    char* com[MAX_INPUT_LENGTH];
-    pid_t pid;
-    struct timespec start_time;
-    struct timespec end_time;
-    double exec_time ;
-    double waiting_time ; 
-    int f1;
-}Process;
-
-typedef struct node{
-    Process * process_data;
-    struct node* next;
-}Node; 
-
-typedef struct queue{
-    Node* front;
-    Node* end;
-}Queue;
-
-Process* com_arr;
-
-char* normal_com[MAX_INPUT_LENGTH];
-int count = 0;
-
-Queue* q;
+//char timeofexec[50];
 
 //static void syscall_handler(int signum);
 
@@ -237,7 +183,6 @@ void shell_loop() {
 
     com_arr = (Process*)malloc(sizeof(Process));
 
-    char s1[50];
     do {
         //Takes input from the user for the command to be executed
         printf("\niiitd@system:~$ ");
