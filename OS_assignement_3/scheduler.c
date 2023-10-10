@@ -1,4 +1,60 @@
-#include "shell.c"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <time.h>
+#include <sys/time.h>
+#include <signal.h>
+
+struct timespec start_time_of_exec;
+struct timespec end_time_of_exec;
+
+#define MAX_INPUT_LENGTH 1024
+#define MAX_LINE_LENGTH 100000
+
+FILE *f1;
+
+pid_t parent_pid;
+pid_t pid;
+char line[MAX_LINE_LENGTH] = "";
+
+int ncpus = 0;
+double tslice = 0.0;
+
+typedef struct process
+{
+    char* com_name;
+    char* com[MAX_INPUT_LENGTH];
+    pid_t pid;
+    struct timespec start_time;
+    struct timespec end_time;
+    double exec_time ;
+    double waiting_time ; 
+    int f1;
+}Process;
+
+typedef struct node{
+    Process * process_data;
+    struct node* next;
+}Node; 
+
+typedef struct queue{
+    Node* front;
+    Node* end;
+}Queue;
+
+Process* com_arr;
+
+char* normal_com[MAX_INPUT_LENGTH];
+int count = 0;
+
+Queue* q;
+
+static void syscall_handler(int signum);
 
 void create_queue(){
     q = (Queue*)malloc(sizeof(Queue));
@@ -71,7 +127,7 @@ int create_process_and_run2(Process* p) {
         printf("Process terminated abnormally!");
         return 0;
     } else if (status == 0) { //Child process
-        if(clock_gettime(CLOCK_MONOTONIC, &p->start_time) == -1){
+        if(clock_gettime(CLOCK_MONOTONIC, &start_time_of_exec) == -1){
             printf("Error executing clock_gettime!");
             exit(1);
         }
@@ -87,11 +143,13 @@ int create_process_and_run2(Process* p) {
         wait(NULL);
         p->f1 = 2;
         //Stores the end time of the execution of the child process
-        if(clock_gettime(CLOCK_MONOTONIC, &p->end_time) == -1){
+        if(clock_gettime(CLOCK_MONOTONIC, &end_time_of_exec) == -1){
             printf("Error executing clock_gettime!");
             exit(1);
         }
-        p->exec_time+=(double)((p->end_time.tv_sec - p->start_time.tv_sec) * 1000.0) + ((p->end_time.tv_nsec - p->start_time.tv_nsec) / 1000000.0);
+        p->exec_time=(double)((end_time_of_exec.tv_sec - start_time_of_exec.tv_sec) * 1000.0) + ((end_time_of_exec.tv_nsec - start_time_of_exec.tv_nsec) / 1000000.0);
+        //Adding the details of the terminated process to the history.txt
+        char s1[50];
         strcat(line, "Command: ");
         strcat(line, p->com_name);
         strcat(line, "\tPID: ");
@@ -102,7 +160,7 @@ int create_process_and_run2(Process* p) {
         strcat(line, s1);
         strcat(line, " milliseconds ");
         strcat(line,"\tWait Time: ");
-        sprintf(s1, "%f", p-waiting_time);
+        sprintf(s1, "%f", p->waiting_time);
         strcat(line, s1);
         strcat(line, "\n");
         
@@ -128,22 +186,22 @@ void run_existing_process(Process* p){
     p->waiting_time += (double)((p->end_time.tv_sec - p->start_time.tv_sec) * 1000.0) + ((p->end_time.tv_nsec - p->start_time.tv_nsec) / 1000000.0);
 
     //Start the timer for the process to start execution again
-    if(clock_gettime(CLOCK_MONOTONIC, &p->start_time) == -1){
-        printf("Error executing clock_gettime!");
-        exit(1);
-    }
+    // if(clock_gettime(CLOCK_MONOTONIC, &p->start_time) == -1){
+    //     printf("Error executing clock_gettime!");
+    //     exit(1);
+    // }
     //Start the timer for execution time.
     kill(p->pid,SIGCONT);
     //Wait for the tslice and stop the process after the tslice is over.
     set_alarm(tslice);
     //Stop the timer for the execution time.
-    if(clock_gettime(CLOCK_MONOTONIC, &p->end_time) == -1){
-        printf("Error executing clock_gettime!");
-        exit(1);
-    }
+    // if(clock_gettime(CLOCK_MONOTONIC, &p->end_time) == -1){
+    //     printf("Error executing clock_gettime!");
+    //     exit(1);
+    // }
     if(p->f1 != 2){
         //Add to the execution time of the process.
-        p->exec_time+=tslice;
+        //p->exec_time+=tslice;
         //Enqueuing the process again to finsih its execution later.
         enqueue(p);
     }
