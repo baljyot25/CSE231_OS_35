@@ -14,7 +14,7 @@ struct timespec start_time_of_exec;
 struct timespec end_time_of_exec;
 
 #define MAX_INPUT_LENGTH 1024
-#define MAX_LINE_LENGTH 100000
+#define MAX_LINE_LENGTH 10000
 
 FILE *f1;
 
@@ -54,11 +54,13 @@ int count = 0;
 
 Queue* q;
 
+pid_t* pid_arr;
+
 static void syscall_handler(int signum);
 
 void create_queue(){
     q = (Queue*)malloc(sizeof(Queue));
-     printf("inside create_process  %d\n", q==NULL);
+    //printf("inside create_process  %d\n", q==NULL);
     if(!q){
         printf("Memory allocation error for queue!");
         exit(7);
@@ -83,13 +85,10 @@ void enqueue(Process* p){
 }
 
 Process* dequeue(){
-    printf("before if\n");
     if(!q->front){
-        printf("after if\n");
         printf("Scheduler Table is empty!");
         return NULL;
     }
-    printf("after after if\n");
     Node* temp = q->front;
     Process* p = temp->process_data;
     q->front = temp->next;
@@ -110,14 +109,30 @@ int isEmpty(){
     }
 }
 
-void set_alarm(unsigned int ms) {
+void set_com_name(Process* p, int i){
+    printf("5\n");
+    p->com_name = "";
+    printf("6\n");
+    for(int j = 0;j<i-1;j++){
+        printf("7\n");
+        printf("%s",p->com[j]);
+        strcat(p->com_name,p->com[j]);
+        printf("8\n");
+        if(j<i-2){
+            printf("9\n");
+            strcat(p->com_name, " ");
+        }
+    }
+}
+
+void set_alarm() {
     // Register the signal handler
     signal(SIGALRM, syscall_handler);
     struct itimerval timer;
-    timer.it_value.tv_sec = ms / 1000;
-    timer.it_value.tv_usec = (ms % 1000) * 1000;
+    timer.it_value.tv_sec = tslice / 1000;
+    timer.it_value.tv_usec = ((int)tslice % 1000) * 1000;
     timer.it_interval.tv_sec = timer.it_interval.tv_usec = 0;
-    setitimer(ITIMER_REAL, &timer, NULL); // Set the timer
+    setitimer(ITIMER_REAL, &timer, NULL); // Set the timer
 }
 
 int create_process_and_run2(Process* p) {
@@ -163,29 +178,29 @@ int create_process_and_run2(Process* p) {
             exit(1);
         }
         p->exec_time=(double)((end_time_of_exec.tv_sec - start_time_of_exec.tv_sec) * 1000.0) + ((end_time_of_exec.tv_nsec - start_time_of_exec.tv_nsec) / 1000000.0);
-        //Adding the details of the terminated process to the history.txt
-        char s1[50];
-        strcat(line, "Command: ");
-        strcat(line, p->com_name);
-        strcat(line, "\tPID: ");
-        sprintf(s1, "%d", p->pid);
-        strcat(line, s1);
-        strcat(line, "\tExecution Duration: ");
-        sprintf(s1, "%f", p->exec_time);
-        strcat(line, s1);
-        strcat(line, " milliseconds ");
-        strcat(line,"\tWait Time: ");
-        sprintf(s1, "%f", p->waiting_time);
-        strcat(line, s1);
-        strcat(line, "\n");
+        // //Adding the details of the terminated process to the history.txt
+        // char s1[50];
+        // strcat(line, "Command: ");
+        // strcat(line, p->com_name);
+        // strcat(line, "\tPID: ");
+        // sprintf(s1, "%d", p->pid);
+        // strcat(line, s1);
+        // strcat(line, "\tExecution Duration: ");
+        // sprintf(s1, "%f", p->exec_time);
+        // strcat(line, s1);
+        // strcat(line, " milliseconds ");
+        // strcat(line,"\tWait Time: ");
+        // sprintf(s1, "%f", p->waiting_time);
+        // strcat(line, s1);
+        // strcat(line, "\n");
         
-        int r = fputs(line, f1);
-        if(r == EOF){
-            printf("Fputs error!");
-            exit(1);
-        }
-        //Empties the line variable and readies it for more commands to be added for storing in the history
-        memset(line, '\0', sizeof(line));
+        // int r = fputs(line, f1);
+        // if(r == EOF){
+        //     printf("Fputs error!");
+        //     exit(1);
+        // }
+        // //Empties the line variable and readies it for more commands to be added for storing in the history
+        // memset(line, '\0', sizeof(line));
 
         return 1;
     }
@@ -230,13 +245,14 @@ void run_existing_process(Process* p){
 void round_robin(){
     while(!isEmpty()){
         Process* p = NULL;
-        // int limit = (ncpus<count) ? ncpus : count;
+        memset(pid_arr,0,ncpus*sizeof(pid_t));
+        //int limit = (ncpus<count) ? ncpus : count;
         for(int i = 0;i<ncpus;i++){
-            if (isEmpty())
-            {
+            if(isEmpty()){
                 break;
             }
             p = dequeue();
+            pid_arr[i] = p->pid;
             if(p->f1 == 0){
                 create_process_and_run2(p);
                 if(clock_gettime(CLOCK_MONOTONIC, &p->end_time) == -1){
@@ -249,4 +265,5 @@ void round_robin(){
             }
         }
     }
+    free(pid_arr);
 }
