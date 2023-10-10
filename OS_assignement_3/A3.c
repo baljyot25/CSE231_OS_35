@@ -52,7 +52,7 @@ typedef struct queue{
 Process* com_arr;
 
 char* normal_com[MAX_INPUT_LENGTH];
-int rows = 0;
+int count = 0;
 
 Queue* q;
 
@@ -123,6 +123,9 @@ void set_alarm(unsigned int ms) {
 
 //Function to parse the command and transform it into a 2d array for easier use 
 int split(char* command) {
+    if(count == 0){
+        create_queue();
+    }
     int checker=0;
     int flag=0;
     while(command[checker]!='\0')
@@ -147,6 +150,7 @@ int split(char* command) {
 
         com_arr->com[i] = NULL;
         enqueue(com_arr);
+        count = 1;
         if(clock_gettime(CLOCK_MONOTONIC, &com_arr->start_time) == -1){
             printf("Error executing clock_gettime!");
             exit(1);
@@ -294,7 +298,8 @@ void run_existing_process(Process* p){
 void round_robin(){
     while(!isEmpty()){
         Process* p = NULL;
-        for(int i = 0;i<ncpus;i++){
+        int limit = (ncpus>count) ? ncpus : count;
+        for(int i = 0;i<limit;i++){
             p = dequeue();
             if(p->f1 == 0){
                 create_process_and_run2(p);
@@ -433,11 +438,14 @@ void shell_loop() {
 
         //Parses the entered commmand and stores in the format of an array
         //split function returns 0 if the given iput cannot pe parsed into a 2d array
+        printf("1\n");
         int type = split(command);
+        printf("2\n");
         if (type==0) continue;
         
-        else if(type==2) create_process_and_run1();
-        else if(printf("bhai\n") && isEmpty() == 0){
+        else if(type==2) {create_process_and_run1(); printf("3\n");}
+        else if(isEmpty() == 0){
+            printf("4\n");
             raise(SIGUSR1);
         }
         //status = create_process_and_run(com);
