@@ -133,14 +133,15 @@ int create_process_and_run2(Process* p) {
             exit(1);
         }
         // Start the timer
-        set_alarm(tslice);
+       
         int status2=fork();
         if (status2<0){
                 printf("Process child terminated abnormally!");
                 return 0;
             } else if (status2==0){
-                // sleep(2);              
-                if (execvp(com[0][0] ,com[j]) == -1) {
+                // sleep(2); 
+                 set_alarm(tslice);             
+                if (execvp(p->com[0], p->com) == -1) {
                     fprintf(stderr, "Error executing command.\n");
                     exit(1);
                 }
