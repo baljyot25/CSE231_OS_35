@@ -4,6 +4,10 @@
 
 //static void syscall_handler(int signum);
 
+void cleanup(){
+    free(pid_arr);
+}
+
 //Function to parse the command and transform it into a 2d array for easier use 
 int split(char* command) {
     if(count == 0){
@@ -29,6 +33,7 @@ int split(char* command) {
             i++;
         }
         com_arr->com[i] = NULL;
+        com_arr->f1 = 0;
         //set_com_name(com_arr,i);
         enqueue(com_arr);
         count += 1;
@@ -96,6 +101,7 @@ int create_process_and_run1(){
 //Handles the default and custom signals.
 static void syscall_handler(int signum) {
     if (signum == SIGINT) {
+        cleanup();
         printf("\n");
         printf("Ctrl-C pressed....\n");
         printf("----------------------------------------------------------------------------------------------\n");
@@ -108,6 +114,7 @@ static void syscall_handler(int signum) {
         exit(0);
     }
     else if(signum == SIGUSR1){
+        printf("5\n");
         round_robin();
     }
     else if(signum == SIGALRM){
