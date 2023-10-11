@@ -98,13 +98,13 @@ Process* dequeue(){
 }
 
 int isEmpty(){
-    printf("isempty start");
+    //printf("isempty start");
     if(q->front == NULL && q->end == NULL){
-        printf("isempty end");
+        //printf("isempty end");
         return 1;
     }
     else{
-        printf("isempty end");
+        //printf("isempty end");
         return 0;
     }
 }
