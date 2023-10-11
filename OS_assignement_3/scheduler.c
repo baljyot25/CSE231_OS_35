@@ -135,10 +135,10 @@ void set_alarm() {
     setitimer(ITIMER_REAL, &timer, NULL); // Set the timer
 }
 
-int create_process_and_run2(Process* p) {
-     int status=p->pid = fork(); //Creates a child process
+int create_process_and_run2(Process* p, int i) {
+    int status = pid_arr[i] = fork(); //Creates a child process
    
-    pid = p->pid;
+    p->pid = pid_arr[i];
     if (status < 0) { //Handles the case when the child process terminates abruptly
         printf("Process terminated abnormally!");
         return 0;
@@ -155,7 +155,7 @@ int create_process_and_run2(Process* p) {
                 return 0;
             } else if (status2==0){
                 // sleep(2); 
-                 set_alarm(tslice);             
+                set_alarm(tslice);             
                 if (execvp(p->com[0], p->com) == -1) {
                     fprintf(stderr, "Error executing command.\n");
                     exit(1);
@@ -243,27 +243,36 @@ void run_existing_process(Process* p){
 }
 
 void round_robin(){
+    printf("6\n");
     while(!isEmpty()){
+        printf("7\n");
         Process* p = NULL;
         memset(pid_arr,0,ncpus*sizeof(pid_t));
         //int limit = (ncpus<count) ? ncpus : count;
+        printf("8\n");
         for(int i = 0;i<ncpus;i++){
+            printf("9\n");
             if(isEmpty()){
                 break;
             }
+            printf("10\n");
             p = dequeue();
-            pid_arr[i] = p->pid;
+            printf("11\n");
             if(p->f1 == 0){
-                create_process_and_run2(p);
-                if(clock_gettime(CLOCK_MONOTONIC, &p->end_time) == -1){
-                    printf("Error executing clock_gettime!");
-                    exit(1);
-                }
+                printf("12\n");
+                create_process_and_run2(p,i);
+                printf("13\n");
+                // if(clock_gettime(CLOCK_MONOTONIC, &p->end_time) == -1){
+                //     printf("Error executing clock_gettime!");
+                //     exit(1);
+                // }
             }
             else if(p->f1 == 1){
+                printf("14\n");
+                pid_arr[i] = p->pid;
                 run_existing_process(p);
             }
         }
     }
-    free(pid_arr);
+    //free(pid_arr);
 }
