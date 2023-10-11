@@ -25,6 +25,11 @@ char line[MAX_LINE_LENGTH] = "";
 int ncpus = 0;
 double tslice = 0.0;
 
+struct itimerval timer;
+// timer.it_value.tv_sec = tslice / 1000;
+// timer.it_value.tv_usec = ((int)tslice % 1000) * 1000;
+// timer.it_interval.tv_sec = timer.it_interval.tv_usec = 0;
+
 typedef struct process
 {
     char* com_name;
@@ -125,10 +130,18 @@ void set_com_name(Process* p, int i){
     }
 }
 
+void sigalrm_handler(int signum){
+    for(int i = 0;i<ncpus;i++){
+        printf("sigalrm");
+        if(pid_arr[i] != 0){
+            kill(pid_arr[i],SIGSTOP);
+        }
+    }
+}
+
 void set_alarm() {
     // Register the signal handler
-    signal(SIGALRM, syscall_handler);
-    struct itimerval timer;
+    signal(SIGALRM, sigalrm_handler);
     timer.it_value.tv_sec = tslice / 1000;
     timer.it_value.tv_usec = ((int)tslice % 1000) * 1000;
     timer.it_interval.tv_sec = timer.it_interval.tv_usec = 0;
@@ -136,26 +149,27 @@ void set_alarm() {
 }
 
 int create_process_and_run2(Process* p, int i) {
-    int status = pid_arr[i] = fork(); //Creates a child process
-   
-    p->pid = pid_arr[i];
+    int status = p->pid = pid_arr[i] = fork(); //Creates a child process
+    // p->pid = pid_arr[i];
     if (status < 0) { //Handles the case when the child process terminates abruptly
         printf("Process terminated abnormally!");
         return 0;
-    } else if (status == 0) { //Child process
-        if(clock_gettime(CLOCK_MONOTONIC, &start_time_of_exec) == -1){
-            printf("Error executing clock_gettime!");
-            exit(1);
-        }
-        // Start the timer
-       
+    } else if (status == 0) { //Child process      
         int status2=fork();
         if (status2<0){
                 printf("Process child terminated abnormally!");
                 return 0;
             } else if (status2==0){
-                // sleep(2); 
-                set_alarm(tslice);             
+                if(clock_gettime(CLOCK_MONOTONIC, &start_time_of_exec) == -1){
+                    printf("Error executing clock_gettime!");
+                    exit(1);
+                }
+                // signal(SIGALRM, sigalrm_handler);   
+                // if (setitimer(ITIMER_REAL, &timer, NULL) == -1) {
+                //     printf("Timer error!");
+                //     exit(EXIT_FAILURE);
+                // }
+                printf("Yes\n");
                 if (execvp(p->com[0], p->com) == -1) {
                     fprintf(stderr, "Error executing command.\n");
                     exit(1);
@@ -223,7 +237,7 @@ void run_existing_process(Process* p){
     //Start the timer for execution time.
     kill(p->pid,SIGCONT);
     //Wait for the tslice and stop the process after the tslice is over.
-    set_alarm(tslice);
+    //set_alarm(tslice);
     //Stop the timer for the execution time.
     // if(clock_gettime(CLOCK_MONOTONIC, &p->end_time) == -1){
     //     printf("Error executing clock_gettime!");
@@ -260,6 +274,7 @@ void round_robin(){
             printf("11\n");
             if(p->f1 == 0){
                 printf("12\n");
+                set_alarm();
                 create_process_and_run2(p,i);
                 printf("13\n");
                 // if(clock_gettime(CLOCK_MONOTONIC, &p->end_time) == -1){
@@ -270,6 +285,7 @@ void round_robin(){
             else if(p->f1 == 1){
                 printf("14\n");
                 pid_arr[i] = p->pid;
+                set_alarm();
                 run_existing_process(p);
             }
         }
