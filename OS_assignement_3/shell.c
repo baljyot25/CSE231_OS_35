@@ -117,13 +117,13 @@ static void syscall_handler(int signum) {
         printf("5\n");
         round_robin();
     }
-    else if(signum == SIGALRM){
-        for(int i = 0;i<ncpus;i++){
-            if(pid_arr[i] != 0){
-                kill(pid,SIGSTOP);
-            }
-        }
-    }
+    // else if(signum == SIGALRM){
+    //     for(int i = 0;i<ncpus;i++){
+    //         if(pid_arr[i] != 0){
+    //             kill(pid,SIGSTOP);
+    //         }
+    //     }
+    // }
 }
 
 //Loop for executing all the commands entered by the user at the terminal
@@ -194,6 +194,8 @@ void shell_loop() {
 
     com_arr = (Process*)malloc(sizeof(Process));
 
+    // Setting the alarm
+    //set_alarm();
     do {
         //Takes input from the user for the command to be executed
         printf("\niiitd@system:~$ ");
