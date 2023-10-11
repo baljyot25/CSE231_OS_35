@@ -19,18 +19,17 @@ int split(char* command) {
     if (flag==0) return 0;
 
     int i = 0;
-    com_arr->com_name = command;
     // Reading the first word of the given command and storing it in s1
     char* s1 = strtok(command, " ");
     // printf("%d\n",strcmp(s1,"submit"));
     if(s1 != NULL && strcmp(s1,"submit")==0){
-        printf("dfef\n");
         while(s1 != NULL){
             s1 = strtok(NULL," ");
             com_arr->com[i] = s1;
             i++;
         }
         com_arr->com[i] = NULL;
+        //set_com_name(com_arr,i);
         enqueue(com_arr);
         count += 1;
         if(clock_gettime(CLOCK_MONOTONIC, &com_arr->start_time) == -1){
@@ -112,7 +111,11 @@ static void syscall_handler(int signum) {
         round_robin();
     }
     else if(signum == SIGALRM){
-        kill(pid,SIGSTOP);
+        for(int i = 0;i<ncpus;i++){
+            if(pid_arr[i] != 0){
+                kill(pid,SIGSTOP);
+            }
+        }
     }
 }
 
@@ -180,6 +183,7 @@ void shell_loop() {
         printf("%lf\n%d\n",tslice,ncpus);
         break;
     }
+    pid_arr = (pid_t*)malloc(sizeof(pid_t));
 
     com_arr = (Process*)malloc(sizeof(Process));
 
