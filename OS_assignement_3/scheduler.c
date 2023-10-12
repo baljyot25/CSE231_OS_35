@@ -198,7 +198,7 @@ void add_processes()
 void sigalrm_handler(int signum){
     printf("sigalrm invoked\n");
     add_processes();
-    for (int i=0;i<current_proccess_counter;i++)
+    for (int i=0;i<current_process_counter;i++)
     {
         int status;
         if (process_arr[i]!=NULL)
@@ -219,7 +219,7 @@ void sigalrm_handler(int signum){
                 enqueue(process_arr[i]);
                 // process_arr[i]->f1=1;
             }
-            else if(x==-1){printf("something wrong happened") exit(0);}
+            else if(x==-1){printf("something wrong happened"); exit(0);}
             else{
                 //process has terminated
                 process_arr[i]->f1=2;
@@ -250,12 +250,12 @@ void sigalrm_handler(int signum){
             }
         }
     }
-    current_proccess_counter=0;
+    current_process_counter=0;
     round_robin();
 }
 
 void set_alarm() {
-    printf("setting alarm\n");
+    // printf("setting alarm\n");
     // Register the signal handler
     signal(SIGALRM, sigalrm_handler);
     timer.it_value.tv_sec = tslice / 1000;
@@ -285,7 +285,7 @@ int create_process_and_run2(Process* p, int i) {
             //printf("Yes\n");
 
             //Executes the command by using the inbuilt execvp function
-            if (execvp(process_arr[i]->com[0], process_arrp[i]->com) == -1) {
+            if (execvp(process_arr[i]->com[0], process_arr[i]->com) == -1) {
                 fprintf(stderr, "Error executing command.\n");
                 exit(1);
             }
@@ -393,14 +393,15 @@ int main()
     tslice=shm->tslice_shm;
     f1 = shm->f1;
     sleep(10);
+    printf("You can start!\n");
     printf("scheduler\n");
     printf("shm array size %d\n",shm->size);
-    printf("command %d\n",(shm->process_name)[0][2][0] );
+    // printf("command %d\n",(shm->process_name)[0][2][0] );
     set_alarm();
-    printf("after set alarm\n");
+    // printf("after set alarm\n");
 
-    sleep(10);
-    printf("sleep over\n");
+    // sleep(10);
+    // printf("sleep over\n");
 
     // process_arr=(Process**)malloc(ncpus*sizeof(Process));
     // for (int i = 0; i < ncpus; i++) {
