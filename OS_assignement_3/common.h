@@ -39,7 +39,7 @@ typedef struct queue{
 typedef struct shm_t {
     // Queue * q_shm;
     // pid_t* pid_arr;
-    int f1;
+    FILE* f1;
     int size;
     char process_name[256][256][128];
     int ncpus_shm ;
