@@ -7,8 +7,10 @@ Process* com_arr;
 int ncpus = 0;
 double tslice = 0.0;
 
+char line[MAX_LINE_LENGTH];
+
 char* normal_com[MAX_INPUT_LENGTH];
-FILE *f1;
+// FILE *f1;
 
 //Function to parse the command and transform it into a 2d array for easier use 
 int split(char* command) {
@@ -45,8 +47,15 @@ int split(char* command) {
         
         (shm->size)++;
         (shm->n_process)++;
-       
-        count += 1;
+        // int r = fputs(shm->line, f1);
+        // fflush(f1);
+        // if(r == EOF){
+        //     printf("Fputs error!");
+        //     exit(1);
+        // }
+        // //Empties the line variable and readies it for more commands to be added for storing in the history
+        // memset(shm->line,'\0',sizeof(shm->line));
+        // count += 1;
         return 1;
     }
     normal_com[i++]=s1;
@@ -57,17 +66,6 @@ int split(char* command) {
     }
     normal_com[i] = NULL;
     return 2;   
-}
-
-//Function to get the history (all commands that have been submitted into the scheduler)
-void history() {
-    int c;
-    //Sets the file pointer to the beginning of the history file
-    rewind(f1); 
-    //Prints all the content of the history file
-    while ((c = fgetc(f1)) != EOF) {
-        putchar(c);
-    }
 }
 
 //Function to run the command entered
@@ -93,23 +91,39 @@ int create_process_and_run1(){
 // pid_t scheduler_pid=0;
 //Handles the default and custom signals.
 static void syscall_handler(int signum) {
+    if (signum==SIGTERM)
+    {
+        // printf("Program terminated!\n");
+        // wait(NULL);
+        // sleep(10);
+        exit(0);
+
+    }
     if (signum == SIGINT) {
-        printf("\n\nscheduler pid %d\n\n", shm->scheduler_pid);\
+        // printf("\n\nscheduler pid %d\n\n", shm->scheduler_pid);
         // kill(shm->scheduler_pid,SIGTERM);
         // cleanup();
-        printf("\n");
-        printf("Ctrl-C pressed....\n");
-        printf("----------------------------------------------------------------------------------------------\n");
-        printf("Program History:\n");
-        printf("\n");
-        history();
-        printf("\n");
-        printf("----------------------------------------------------------------------------------------------\n");
-        printf("Program terminated!\n");
-
-       
-
-        exit(0);
+        
+        // int r = fputs(shm->line, f1);
+        // fflush(f1);
+        // if(r == EOF){
+        //     printf("Fputs error!");
+        //     exit(1);
+        // }
+        // //Empties the line variable and readies it for more commands to be added for storing in the history
+        // memset(shm->line,'\0',sizeof(shm->line));
+        // history();
+        kill(shm->scheduler_pid, SIGINT);
+        // printf("scheduler pid %d\n",shm->scheduler_pid);
+        // sleep(10);
+        // wait(NULL);
+        int status;
+        
+        while(1)
+        {
+            
+        }
+        
     }
 }
 
@@ -141,11 +155,14 @@ void shell_loop()
     shm->n_process=0;
     // create_queue();
     shm->size=0;
-    shm->f1 = f1;
+    // for(int i = 0;i<MAX_LINE_LENGTH;i++){
+    //     (shm->line)[i] = '\0';
+    // }
+    // shm->f1 = f1;
     //Setting the initial process array
-    for (int i = 0; i < 128; i++) {
-        for (int j = 0; j < 128; j++) {
-            for (int k = 0; k < 56; k++) {
+    for (int i = 0; i < 256; i++) {
+        for (int j = 0; j < 64; j++) {
+            for (int k = 0; k < 64; k++) {
                 (shm->process_name)[i][j][k] = '\0';
             }
         }
@@ -159,17 +176,13 @@ void shell_loop()
     sig.sa_handler = syscall_handler;
     sigaction(SIGINT, &sig, NULL);  
     // printf("signal error\n");
-    signal(SIGUSR1, syscall_handler);
+    signal(SIGTERM, syscall_handler);
 
     int status = 1;
 
-    // parent_pid = getppid();
-    //Opens the history.txt file and checks if the file has been opened correctly or not
-    f1 = fopen("history.txt", "w+");
-    if (f1 == NULL) {
-        printf("Error in opening history file!\n");
-        exit(1);
-    }
+    shm->shell_pid = getpid();
+    // printf("parent pid %d\n",shm->shell_pid);
+    
     double duration;
     int s1=fork();
     if (s1<0){
@@ -246,9 +259,6 @@ void shell_loop()
     munmap(shm, sizeof(shm_t));
     close(fd);
     shm_unlink("/my_shared_memory");
-
-    // Closing the history file
-    fclose(f1);
 }
  
 
