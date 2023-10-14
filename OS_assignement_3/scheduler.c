@@ -32,14 +32,26 @@ static void syscall_handler(int signum);
 
 void round_robin();
 
-Queue* q;
+Queue* q1;
+Queue* q2;
+Queue* q3;
+Queue* q4;
 
 int fd;
 
 int is_shell_exit=0;
 
-void print_q()
+Queue* return_queue(int i){
+    if(i==1) return q1;
+    else if(i==2) return q2;
+    else if(i==3) return q3;
+    else if(i==4) return q4;
+}
+
+void print_q(int i)
 {
+    printf("this is queue %d\n",i);
+    Queue* q=return_queue(i);
      printf("starting q printing.....\n");
     if (q==NULL)
     {
@@ -76,19 +88,26 @@ void print_q()
 
 void create_queue(){
     // printf("create queue \n");
-    q = (Queue*)malloc(sizeof(Queue));
+    q1 = (Queue*)malloc(sizeof(Queue));
+    q2 = (Queue*)malloc(sizeof(Queue));
+    q3 = (Queue*)malloc(sizeof(Queue));
+    q4 = (Queue*)malloc(sizeof(Queue));
     //printf("inside create_process  %d\n", q==NULL);
-    if(!(q)){
+    if(!(q1) || !(q2) || !(q3) || !(q4)){
         printf("Memory allocation error for queue!");
         exit(7);
     }
-    (q)->front = (q)->end = NULL;
+    (q1)->front = (q1)->end = NULL;
+    (q2)->front = (q2)->end = NULL;
+    (q3)->front = (q3)->end = NULL;
+    (q4)->front = (q4)->end = NULL;
     // printf("queue created\n");
     //  printf("ncpus %d\n", shm->q_shm->end==NULL);
 }
 
-void enqueue(Process* p){
+void enqueue(Process* p, Queue* q){
     count++;
+
     // printf("\nenq stared\n");
     // printf("first word of the process name %s\n",p->com[0]);
     // if (q->end!=NULL)   printf("\nq ka end currently  %s\n", q->end->process_data->com[0]);
@@ -119,7 +138,7 @@ void enqueue(Process* p){
     // printf("enq done\n");
 }
 
-Process* dequeue(){
+Process* dequeue(Queue* q){
     count--;
     if(!q->front){
         printf("Scheduler Table is empty!");
@@ -133,7 +152,7 @@ Process* dequeue(){
     return p;
 } 
 
-int isEmpty(){
+int isEmpty(Queue* q){
     if(q->front == NULL && q->end == NULL) return 1;
     else return 0;
 }
@@ -154,8 +173,29 @@ void add_processes()
         shm->n_process=0;
         com_arr->com[j] = NULL;
         com_arr->f1 = 0;
-        enqueue(com_arr);
+        int x = com_arr->com[j-1][0]-'0';
+        
+
+        if(!(x<=4 && x>=1)) 
+        {x = 1;com_arr->priority_no = x;}
+        else{
+            com_arr->priority_no = x;
+            com_arr->com[j-1]=NULL ;         
+
+        }
+        
+           
+            
+        if(x==1) enqueue(com_arr,q1);
+        else if(x==2) enqueue(com_arr,q2);
+        else if(x==3) enqueue(com_arr,q3);
+        else if(x==4) enqueue(com_arr,q4);
+    
+        
+
+        
     }
+    
 }
 
 //Function to get the history (all commands that have been submitted into the scheduler)
@@ -229,11 +269,19 @@ void sigchld_handler(int signum, siginfo_t *info, void *context){
     }
 }
 
+
+
+void set_waiting_time(Queue* q){
+    Node* temp = q->front;
+    while(temp!=NULL){
+        temp->process_data->waiting_time += tslice;
+        temp = temp->next;
+    }
+}
+
 void scheduler_syscall_handler(int signum){
-    if(signum == SIGALRM){
-        // printf("sigalrm invoked\n");
-        // print_q();
-        
+    if(signum == SIGALRM){ 
+        // printf("sigalarm invoked\n") ;      
         for (int i=0;i<current_process_counter;i++){
             int status;
             if (process_arr[i]!=NULL && process_arr[i]->f1 != 2){
@@ -241,28 +289,34 @@ void scheduler_syscall_handler(int signum){
                 process_arr[i]->exec_time += tslice;   
             }
         }
-        Node* temp = q->front;
-        while(temp!=NULL){
-            temp->process_data->waiting_time +=tslice;
-            temp = temp->next;
+        for(int i = 1;i<=4;i++){
+            set_waiting_time(return_queue(i));
         }
         
         add_processes();
         
         for(int i = 0;i<current_process_counter;i++){
-            if(process_arr[i]->f1 == 1) enqueue(process_arr[i]);            
+            if(process_arr[i]->f1 == 1) {
+                if(process_arr[i]->priority_no == 4) enqueue(process_arr[i],return_queue(4));
+                else{
+                    // printf("printf priority changes ");
+                    process_arr[i]->priority_no += 1;
+                    enqueue(process_arr[i],return_queue(process_arr[i]->priority_no));            
+                }                
+            }
         }
+        // printf("\nprinting every queue after priority changing \n");
+        // print_q(1);
+        // print_q(2);
+        // print_q(3);
+        // print_q(4);
        
         current_process_counter=0;
         round_robin();
         if (is_shell_exit==1)
         {
-            if (isEmpty() && current_process_counter==0)
+            if (isEmpty(q1) && isEmpty(q2) && isEmpty(q3) && isEmpty(q4) && current_process_counter==0)
             {
-                
-               
-                // sleep(5);
-                // printf("sigint of scheduler done\n");
                 printf("\n");
                 printf("Ctrl-C pressed....\n");
                 printf("----------------------------------------------------------------------------------------------\n");
@@ -278,7 +332,10 @@ void scheduler_syscall_handler(int signum){
                 // printf("efj\n");
                 // printf("shell_pid %d\n",shm->shell_pid);
                 kill(shm->shell_pid,SIGTERM);
-                free(q);
+                free(q1);
+                free(q2);
+                free(q3);
+                free(q4);
                 free(line);
                 munmap(shm, sizeof(shm_t));
                 close(fd);
@@ -290,14 +347,29 @@ void scheduler_syscall_handler(int signum){
     }
     else if(signum == SIGINT){
         is_shell_exit=1;
+        // need to remove this
+        // exit(0);
+
         // printf("\nsigint  invoked\n");
         
     }    
 }
 
-void set_alarm() { 
-    // printf("setting alarm\n");
-    setitimer(ITIMER_REAL, &timer, NULL); // Set the timer
+void set_alarm(int tslice) { 
+    // Sets the timer
+    // printf("setting alarm with time %d ms\n",tslice);
+    if(tslice >= 10){
+        timer.it_value.tv_sec = tslice / 1000;
+        timer.it_value.tv_usec = ((int)tslice % 1000) * 1000;
+        timer.it_interval.tv_sec = timer.it_interval.tv_usec = 0;
+    }
+    else{
+        timer.it_value.tv_sec = 10 / 1000;
+        timer.it_value.tv_usec = (10 % 1000) * 1000;
+        timer.it_interval.tv_sec = timer.it_interval.tv_usec = 0;
+    }
+    
+    setitimer(ITIMER_REAL, &timer, NULL); // Start the timer
 }
 
 int create_process_and_run2(Process* p, int i) {
@@ -329,59 +401,74 @@ void round_robin(){
     Process* p = NULL;
     // printf("current process counter %d\n",current_process_counter);
     // printf("1\n");
-    if (isEmpty())
+    if (isEmpty(q1) && isEmpty(q2) && isEmpty(q3) && isEmpty(q4))
     {
-        set_alarm();
+        set_alarm(tslice);
+        // printf("round robin ended\n");
         // usleep(1000*tslice);
         return;
     }
-    if(!isEmpty()){
-        // printf("2\n");
-        current_process_counter = (ncpus < count) ? ncpus : count;
-        // printf("3\n");
-        // printf("processes: %d\n",current_process_counter);
-        for(int i = 0;i<current_process_counter;i++){
-            // printf("4\n");
-            process_arr[i] = dequeue();
-            // printf("5\n");
-        }
-        // printf("before set alarm\n");
-        set_alarm();
-        // printf("after set alarm\n");
-        for (int i = 0;i < current_process_counter;i++){
-            p = process_arr[i];
-            if(p->f1 == 0){
-                // printf("12\n");
-                create_process_and_run2(p,i);
-                // printf("13\n");
+    // printf("line 390\n");
+    current_process_counter = (ncpus < count) ? ncpus : count;
+    Queue* q;
+    int c=0,cur=0;
+    // printf("count : %d\ncurrent process counter %d\n", count,current_process_counter);
+    for(int i = 1;i<=4;i++){
+        // cur = c;
+        q = return_queue(i);
+        while(c<current_process_counter){
+            // printf("1  ");
+            if(isEmpty(q)){
+                break;
             }
-            else if(p->f1 == 1){
-                // printf("14\n");
-                // if(clock_gettime(CLOCK_MONOTONIC, &p->end_time) == -1){
-                //     printf("Error executing clock_gettime!");
-                //     exit(1);
-                // }
-                // //Add to the waiting time of the process
-                // p->waiting_time += (double)((p->end_time.tv_sec - p->start_time.tv_sec) * 1000.0) + ((p->end_time.tv_nsec - p->start_time.tv_nsec) / 1000000.0);
-                kill(p->pid,SIGCONT);
-            }
+            process_arr[c] = dequeue(q);    
+            c++;
         }
-        // current_process_counter = 0;
-        // printf("\nprinting q \n");
-        // print_q();
-        // printf("round robin ended\n");
+        // if (cur==c) continue;
+        // set_alarm(q->tslice);
+        // for (int j = cur;j < c;j++){
+        //     p = process_arr[j];
+        //     if(p->f1 == 0){
+        //         // printf("12\n");
+        //         create_process_and_run2(p,j);
+        //         // printf("13\n");
+        //     }
+        //     else if(p->f1 == 1){
+        //         kill(p->pid,SIGCONT);
+        //     }
+        // }
+        if(c==current_process_counter){
+            break;
+        }   
     }
+    set_alarm(tslice);
+        // printf("after set alarm\n");
+    for (int i = 0;i < current_process_counter;i++){
+        p = process_arr[i];
+        if(p->f1 == 0){
+            // printf("12\n");
+            create_process_and_run2(p,i);
+            // printf("13\n");
+        }
+        else if(p->f1 == 1){
+            // printf("14\n");
+            // if(clock_gettime(CLOCK_MONOTONIC, &p->end_time) == -1){
+            //     printf("Error executing clock_gettime!");
+            //     exit(1);
+            // }
+            // //Add to the waiting time of the process
+            // p->waiting_time += (double)((p->end_time.tv_sec - p->start_time.tv_sec) * 1000.0) + ((p->end_time.tv_nsec - p->start_time.tv_nsec) / 1000000.0);
+            kill(p->pid,SIGCONT);
+        }
+    }
+
+
+
+    // printf("round robin ended\n");
 }
 
 int main()
 {
-//    struct sigaction sig;
-//     memset(&sig, 0, sizeof(sig));
-//     sig.sa_handler = sigterm_handler;
-//     sigaction(SIGTERM, &sig, NULL);
-
-//     signal(SIGCHLD, sigchld_handler)
-
     struct sigaction sig1;
     memset(&sig1, 0, sizeof(sig1));
     sig1.sa_handler = scheduler_syscall_handler;
@@ -397,15 +484,6 @@ int main()
     sigemptyset(&sig2.sa_mask);
     sigaction(SIGCHLD, &sig2, NULL);
 
-    // sigset_t new_set;
-    // sigemptyset(&new_set);
-    // sigaddset(&new_set, SIGCHLD);
-    // struct sigaction act;
-    // act.sa_sigaction = catch;
-    // act.sa_mask = new_set;
-    // act.sa_flags = SA_SIGINFO | SA_RESTART;
-    // CHECK(sigaction(SIGCHLD, &act, NULL), "sigaction error");
-
     //Opens the history.txt file and checks if the file has been opened correctly or not
     f1 = fopen("history.txt", "w+");
     if (f1 == NULL) {
@@ -417,49 +495,26 @@ int main()
     fd = shm_open("/my_shared_memory", O_CREAT | O_RDWR, 0666);
     ftruncate(fd, sizeof(shm_t));
     shm =(shm_t*)mmap(NULL, sizeof(shm_t), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    // shm->scheduler_pid=getpid();
     ncpus=shm->ncpus_shm;
     tslice=shm->tslice_shm;
-    // f1 = shm->f1;
-    // line = shm->line;
-    // printf("adsfa %d",getpid());
-    // free(q);
     create_queue();
-    // sleep(20);
-    // struct sigaction sa;
-    // sa.sa_handler = sigalrm_handler;
-    // sa.sa_flags = 0;
 
-    // // Register the signal handler for SIGALRM
-    // sigaction(SIGALRM, &sa, NULL);
-    
-    // Sets the timer
-    timer.it_value.tv_sec = tslice / 1000;
-    timer.it_value.tv_usec = ((int)tslice % 1000) * 1000;
-    timer.it_interval.tv_sec = timer.it_interval.tv_usec = 0;
-
+    //Setting the time slices for each priority queue.
+    q1->tslice = tslice;
+    q2->tslice = q1->tslice / 2;
+    q3->tslice = q2->tslice / 2;
+    q4->tslice = q3->tslice / 2;
 
     //Initialises the process_arr variable used to store the processes in the running queue.
     process_arr=(Process**)malloc(ncpus*sizeof(Process));
     for (int i = 0; i < ncpus; i++) {
         process_arr[i] = (Process*)malloc(sizeof(Process));
     }
-    // printf("Start!\n");
-// 
-    // printf("shell_pid %d\n",shm->shell_pid);
 
-    set_alarm(); 
+    set_alarm(tslice); 
     while(1)
     {
        usleep(1000*tslice);
         //need to change this 
     }
-
-    // printf("program should never come here\n");
-    
-    // add_process_loop();
-    // printf("2\n");
-    // round_robin();
-    // printf("scheduler ended\n");
-
 }
