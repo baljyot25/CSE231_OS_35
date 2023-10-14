@@ -118,6 +118,7 @@ static void syscall_handler(int signum) {
         // sleep(10);
         // wait(NULL);
         int status;
+        // exit(0);
         
         while(1)
         {
