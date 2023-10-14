@@ -19,6 +19,7 @@ typedef struct process{
     char* com_name;
     char* com[MAX_INPUT_LENGTH];
     pid_t pid;
+    int priority_no;
     struct timespec start_time;
     struct timespec end_time;
     double exec_time ;
@@ -34,6 +35,7 @@ typedef struct node{
 typedef struct queue{
     Node* front;
     Node* end;
+    int tslice;
 }Queue;
 
 typedef struct shm_t {
@@ -44,7 +46,6 @@ typedef struct shm_t {
 
     pid_t scheduler_pid;
     pid_t shell_pid;
-    
     int size;
     int n_process;
     char process_name[256][64][64];
