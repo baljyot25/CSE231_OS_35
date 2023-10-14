@@ -24,7 +24,7 @@ int split(char* command) {
     int i = 0;
     // Reading the first word of the given command and storing it in s1
     char* s1 = strtok(command, " ");
-    shm->n_process = 0;
+    // shm->n_process = 0;
     if(s1 != NULL && strcmp(s1,"submit")==0){
         while(1){
             s1 = strtok(NULL," ");
@@ -33,13 +33,13 @@ int split(char* command) {
             //printf("s1: %s\n",s1);
             while(s1[j]!=0)
             {
-                (shm->process_name)[shm->size+shm->n_process][i][j]=s1[j];
+                (shm->process_name)[shm->size][i][j]=s1[j];
 
-                printf("%d\n",(shm->process_name)[shm->size][i][j]);
+                // printf("%d\n",(shm->process_name)[shm->size][i][j]);
                 j++;
             }
             (shm->process_name)[shm->size][i][j]='\0';
-            printf("j %d\n",j);
+            // printf("j %d\n",j);
             i++;
         }
         
@@ -117,7 +117,7 @@ static void syscall_handler(int signum) {
 //Loop for executing all the commands entered by the user at the terminal
 void shell_loop()
 {
-    printf("bhai\n");
+    // printf("bhai\n");
    
     // Process * p=NULL;
     // enqueue(p);
@@ -135,9 +135,10 @@ void shell_loop()
         printf("Mmap failure!\n");
         exit(3);
     }
-    printf("bhai\n");
+    // printf("bhai\n");
     shm->ncpus_shm = ncpus;
     shm->tslice_shm = tslice;
+    shm->n_process=0;
     // create_queue();
     shm->size=0;
     shm->f1 = f1;
@@ -189,7 +190,7 @@ void shell_loop()
             char* data[2] = {"./scheduler", NULL};
             // printf("grandchild\n");
             shm->scheduler_pid=getpid();
-            printf("bhai %d  %d\n",shm->scheduler_pid,getpid());
+            // printf("bhai %d  %d\n",shm->scheduler_pid,getpid());
             if (execvp(data[0], data) == -1) {
                 fprintf(stderr, "Error executing command.\n");
                 exit(1);
@@ -197,7 +198,7 @@ void shell_loop()
         }
         else 
         {
-            printf("s2 %d", getpid());
+            // printf("s2 %d", getpid());
             _exit(0);  }     
     }
     else{
@@ -224,14 +225,14 @@ void shell_loop()
             if (command == NULL) continue;
 
             //Tokenising the command entered
-            printf("before split\n");
+            // printf("before split\n");
             int type = split(command);
-            printf("after split\n");
+            // printf("after split\n");
 
             //Checking the type of the command
             if (type==0) continue; //Continue to next iteration if the command only contains whitespaces
             //Run the command like a normal command without inserrting into queue if the entered command does not start with "submit"
-            else if(type==2) {printf("normal cpr\n");create_process_and_run1();printf("after cpr\n");}
+            else if(type==2) {create_process_and_run1();}
             // else if(isEmpty() == 0){
             //     printf("4\n");
             //     raise(SIGUSR1);
