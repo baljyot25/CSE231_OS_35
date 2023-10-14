@@ -54,18 +54,18 @@ void print_q()
     }
     else if (q->front==NULL)
     {
-        printf("q is empty");
+        printf("q is empty\n");
         printf ("status of q->end %d\n",q->end==NULL);
         return ;
     }
-    printf("cleared empty area\n");
+    // printf("cleared empty area\n");
     Node * temp=q->front;
     Process *p;
     while(temp!=NULL)
     {
         p=temp->process_data;
         printf("f1  %d\n",p->f1);
-        printf("idhar toh aana chahiye\n");
+        // printf("idhar toh aana chahiye\n");
         int j=0;
         printf("command : %d  ",p->com[0][0]);
         while((p->com)[j]!=NULL)
@@ -75,13 +75,13 @@ void print_q()
         }
         printf("\n");
         temp=temp->next;
-        printf("queue->front==temp  %d\n", q->front==temp);
+        // printf("queue->front==temp  %d\n", q->front==temp);
     }
     printf("ending q printing....\n");
 }
 
 void create_queue(){
-    printf("create queue \n");
+    // printf("create queue \n");
     q = (Queue*)malloc(sizeof(Queue));
     //printf("inside create_process  %d\n", q==NULL);
     if(!(q)){
@@ -94,7 +94,9 @@ void create_queue(){
 }
 void enqueue(Process* p){
     count++;
-    // printf("\nenq stared\n");
+    printf("\nenq stared\n");
+    printf("first word of the process name %s\n",p->com[0]);
+    if (q->end!=NULL)   printf("\nq ka end currently  %s\n", q->end->process_data->com[0]);
     Node* newnode = (Node*)malloc(sizeof(Node));
     if(!newnode){
         printf("Memmory allocation error for new node!");
@@ -106,17 +108,20 @@ void enqueue(Process* p){
     // printf("\nenq stared\n");
     if(!(q)->end){
         // printf("\nidhar hun\n");
+        printf("q is empty here\n");
 
         (q)->front = (q)->end = newnode;
+        printf("\nq ka end currently  %s\n", q->end->process_data->com[0]);
         // print_q();
-        // printf("\nno idea\n");
+        printf("enque done\n");
         return;
     }
     // printf("\nenq stared\n");
+    
     (q)->end->next = newnode;
     (q)->end = newnode;
     // print_q();
-    // printf("enq done\n");
+    printf("enq done\n");
 }
 
 Process* dequeue(){
@@ -150,22 +155,23 @@ int isEmpty(){
 void add_processes()
 {
     printf("Add process started...\n");
-    com_arr=(Process*)malloc(sizeof(Process));
-    printf("%d\n",shm->size);
-    printf("%d\n",shm->n_process);
-    for (int i=shm->size-shm->n_process;i<shm->size;i++){   
+    
+    printf("shm ka size  %d\n",shm->size);
+    printf("m_process  %d\n",shm->n_process);
+    for (int i=shm->size-shm->n_process;i<shm->size;i++){ 
+        com_arr=(Process*)malloc(sizeof(Process));  
         // printf("1\n");         
         char* s;
         int j = 0;
         // printf("2\n");
         while ((shm->process_name)[i][j][0] != '\0'){
-            printf("3\n");
+            // printf("3\n");
             com_arr->com[j] = (shm->process_name)[i][j];
             // strcpy(com_arr->com[j],(shm->process_name)[i][j]);
             // s = (shm->process_name)[i][j];
             // printf("%s\n",s);
             // com_arr->com[j] = s;
-            printf("%s\n",com_arr->com[j]);
+            // printf("%s\n",com_arr->com[j]);
             j++;
         }
         // printf("Yes\n");
@@ -189,11 +195,11 @@ void sigchld_handler(int signum, siginfo_t *info, void *context){
         
         if(process_arr[i]!=NULL &&   process_arr[i]->pid == info->si_pid){
             //process has terminated
-            printf("yahi hoon main\n");
+            // printf("yahi hoon main\n");
             process_arr[i]->f1=2;
             // count--;
             process_arr[i]->exec_time += tslice;
-            printf("yaha aagya hoon main\n");
+            // printf("yaha aagya hoon main\n");
             //Adding the details of the terminated process to the history.txt
             // char s1[50];
             // strcat(line, "Command: ");
@@ -368,7 +374,7 @@ int create_process_and_run2(Process* p, int i) {
        
         // printf(" child\n");
         //Executes the command by using the inbuilt execvp function
-        printf("pid by child %d\n", getpid());
+        // printf("pid by child %d\n", getpid());
         if (execvp(process_arr[i]->com[0], process_arr[i]->com) == -1) {
             fprintf(stderr, "Error executing command.\n");
             exit(1);
@@ -380,28 +386,29 @@ int create_process_and_run2(Process* p, int i) {
 }
 
 void round_robin(){
+    print_q();
     printf("round robin started\n");
     Process* p = NULL;
-    printf("%d\n",current_process_counter);
-    printf("1\n");
+    printf("current process counter %d\n",current_process_counter);
+    // printf("1\n");
     if (isEmpty())
     {
         set_alarm();
         return;
     }
     while(!isEmpty()){
-        printf("2\n");
+        // printf("2\n");
         current_process_counter = (ncpus < count) ? ncpus : count;
-        printf("3\n");
+        // printf("3\n");
         printf("processes: %d\n",current_process_counter);
         for(int i = 0;i<current_process_counter;i++){
-            printf("4\n");
+            // printf("4\n");
             process_arr[i] = dequeue();
-            printf("5\n");
+            // printf("5\n");
         }
-        printf("before set alarm\n");
+        // printf("before set alarm\n");
         set_alarm();
-        printf("after set alarm\n");
+        // printf("after set alarm\n");
         for (int i = 0;i < current_process_counter;i++){
             p = process_arr[i];
             if(p->f1 == 0){
@@ -421,9 +428,9 @@ void round_robin(){
             }
         }
         // current_process_counter = 0;
-        printf("\nprinting q \n");
+        // printf("\nprinting q \n");
         print_q();
-        printf("round robin ended\n");
+        // printf("round robin ended\n");
     }
 }
 
@@ -510,10 +517,11 @@ int main()
         usleep(1000*tslice);//need to change this 
     }
 
+    printf("program should never come here\n");
     printf("Start!\n");
     add_process_loop();
     printf("2\n");
     round_robin();
-    printf("scheduler ended\n");
+    printf("scheduler ended\n");
 
 }
