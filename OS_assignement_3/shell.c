@@ -1,42 +1,6 @@
 #include "common.h"
 
-//char timeofexec[50];
-//static void syscall_handler(int signum);
-
-
 shm_t* shm;
-
-// void create_queue(){
-//     printf("create queue \n");
-//     shm->q_shm = (Queue*)malloc(sizeof(Queue));
-//     //printf("inside create_process  %d\n", q==NULL);
-//     if(!(shm->q_shm)){
-//         printf("Memory allocation error for queue!");
-//         exit(7);
-//     }
-//     (shm->q_shm)->front = (shm->q_shm)->end = NULL;
-//      printf("ncpus %d\n", shm->q_shm->end==NULL);
-// }
-
-// void enqueue(Process* p){
-//     Node* newnode = (Node*)malloc(sizeof(Node));
-//     if(!newnode){
-//         printf("Memmory allocation error for new node!");
-//         exit(8);
-//     }
-//     newnode->process_data = p;
-//     newnode->next = NULL;
-//     if(!(shm->q_shm)->end){
-//         (shm->q_shm)->front = (shm->q_shm)->end = newnode;
-//         return;
-//     }
-//     (shm->q_shm)->end->next = newnode;
-//     (shm->q_shm)->end = newnode;
-// }
-
-
-// string com[1024];
-
 pid_t* pid_arr;
 int count = 0;
 Process* com_arr;
@@ -46,16 +10,8 @@ double tslice = 0.0;
 char* normal_com[MAX_INPUT_LENGTH];
 FILE *f1;
 
-
-void cleanup(){
-    free(pid_arr);
-}
-
 //Function to parse the command and transform it into a 2d array for easier use 
 int split(char* command) {
-    // if(count == 0){
-    //     create_queue();
-    // }
     int checker=0;
     int flag=0;
     while(command[checker]!='\0')
@@ -68,40 +24,31 @@ int split(char* command) {
     int i = 0;
     // Reading the first word of the given command and storing it in s1
     char* s1 = strtok(command, " ");
-    // printf("%d\n",strcmp(s1,"submit"));
+    shm->n_process = 0;
     if(s1 != NULL && strcmp(s1,"submit")==0){
         while(1){
             s1 = strtok(NULL," ");
-
-            // com[i] = s1;
             if (s1==NULL) break;
-            // printf("command : %d %d\n",s1[1],s1[3]);
-            // printf("size %ld\n",sizeof(s1));
             int j=0;
+            //printf("s1: %s\n",s1);
             while(s1[j]!=0)
             {
-                (shm->process_name)[shm->size][i][j]=s1[j];
+                (shm->process_name)[shm->size+shm->n_process][i][j]=s1[j];
+
+                printf("%d\n",(shm->process_name)[shm->size][i][j]);
                 j++;
             }
             (shm->process_name)[shm->size][i][j]='\0';
             printf("j %d\n",j);
             i++;
         }
-        // com[i] = NULL;
-
-
-
-        // (shm->process_name)[shm->size]=com;
+        
         (shm->size)++;
+        (shm->n_process)++;
        
         count += 1;
-        // if(clock_gettime(CLOCK_MONOTONIC, &com_arr->start_time) == -1){
-        //     printf("Error executing clock_gettime!");
-        //     exit(1);
-        // }
         return 1;
     }
-    // printf("%d\n",s1==NULL);
     normal_com[i++]=s1;
     while (s1 != NULL) {
         s1 = strtok(NULL, " ");
@@ -111,20 +58,6 @@ int split(char* command) {
     normal_com[i] = NULL;
     return 2;   
 }
-
-// //Function to calculate start time of execution of a command
-// void get_time() {
-//     //Setting the time zone
-//     setenv("TZ", "Asia/Kolkata", 1);
-//     tzset();
-//     time_t current_time;
-//     //Getting the current time 
-//     time(&current_time);
-//     //Converting the time to the local time
-//     struct tm *timeinfo = localtime(&current_time);
-//     //Converting the format of the time we got to a readable and understandable format
-//     strftime(timeofexec, sizeof(timeofexec), "%d-%m-%Y %H:%M:%S", timeinfo);
-// }
 
 //Function to get the history (all commands that have been submitted into the scheduler)
 void history() {
@@ -153,15 +86,17 @@ int create_process_and_run1(){
     }
     else{
         waitpid(status,NULL,0);
-        // wait(NULL);
-        // wait(NULL);
+        
     }
 }
 
+// pid_t scheduler_pid=0;
 //Handles the default and custom signals.
 static void syscall_handler(int signum) {
     if (signum == SIGINT) {
-        cleanup();
+        printf("\n\nscheduler pid %d\n\n", shm->scheduler_pid);\
+        // kill(shm->scheduler_pid,SIGTERM);
+        // cleanup();
         printf("\n");
         printf("Ctrl-C pressed....\n");
         printf("----------------------------------------------------------------------------------------------\n");
@@ -171,34 +106,18 @@ static void syscall_handler(int signum) {
         printf("\n");
         printf("----------------------------------------------------------------------------------------------\n");
         printf("Program terminated!\n");
+
+       
+
         exit(0);
     }
-    // else if(signum == SIGUSR1){
-    //     printf("5\n");
-    //     round_robin();
-    // }
-    else if(signum == SIGALRM){
-        printf("sigalarm invoked\n");
-        for(int i = 0;i<ncpus;i++){
-            if(pid_arr[i] != 0){
-                kill(pid_arr[i],SIGSTOP);
-            }
-        }
-    }
-    // else if(signum == SIGCHLD){
-    //     for(int i = 0;i<ncpus;i++){
-    //         if(kill(process_arr[i]->pid,0) == -1){
-    //             process_arr[i]->f1 = 2;
-    //         }
-    //     }
-    // }
 }
-
 
 
 //Loop for executing all the commands entered by the user at the terminal
 void shell_loop()
 {
+    printf("bhai\n");
    
     // Process * p=NULL;
     // enqueue(p);
@@ -216,12 +135,21 @@ void shell_loop()
         printf("Mmap failure!\n");
         exit(3);
     }
-    
+    printf("bhai\n");
     shm->ncpus_shm = ncpus;
     shm->tslice_shm = tslice;
     // create_queue();
     shm->size=0;
     shm->f1 = f1;
+    //Setting the initial process array
+    for (int i = 0; i < 128; i++) {
+        for (int j = 0; j < 128; j++) {
+            for (int k = 0; k < 56; k++) {
+                (shm->process_name)[i][j][k] = '\0';
+            }
+        }
+    }
+    
 
     //Initialisations for the Crtl-C handler function
     
@@ -242,54 +170,6 @@ void shell_loop()
         exit(1);
     }
     double duration;
-
-    // //Initialising a variable to read ncpus and tslice from the stdin
-    // char* prereq = malloc(MAX_INPUT_LENGTH);
-    // if(prereq == NULL){
-    //     printf("Memory Allocation error!");
-    //     exit(2);
-    // }
-    // //Taking input for ncpus
-    // while(1)
-    // {
-    //     //Taking input for ncpus
-    //     printf("Enter the number of cpus (NCPUS): ");
-    //     if(fgets(prereq,MAX_INPUT_LENGTH,stdin) == NULL){
-    //         free(prereq);
-    //         printf("Error reading input!");
-    //         exit(3);
-    //     }
-    //     //Converting the string stored in prereq to int and assigning it to ncpus global variable
-    //     ncpus = atoi(prereq);
-    //     if (ncpus==0)
-    //     {
-    //         printf("Invalid value of NCPUS\n");
-    //         continue;
-    //     }
-    //     //Taking input for tslice
-    //     printf("Enter the time slice (TSLICE): ");
-    //     if(fgets(prereq,MAX_INPUT_LENGTH,stdin) == NULL){
-    //         free(prereq);
-    //         printf("Error reading input!");
-    //         exit(4);
-    //     }
-    //     //Converting the string stored in prereq to double and assigning it to tslice global variable
-    //     tslice = atof(prereq);
-        
-    //     double error = 0.000001; // Set your desired tolerance
-
-    //     if (abs(tslice - 0.000000) < error) {
-    //         printf("Invalid value of TSLICE\n");
-    //         continue;
-    //     }
-    //     printf("%lf\n%d\n",tslice,ncpus);
-    //     break;
-    // }
-    // pid_arr = (pid_t*)malloc(sizeof(pid_t));
-
-    // com_arr = (Process*)malloc(sizeof(Process));
-
-    // printf("\n ncpus %d\n", shm->q_shm->end==NULL);
     int s1=fork();
     if (s1<0){
         printf("Scheduler initialisation failed!\n");
@@ -297,6 +177,8 @@ void shell_loop()
     }
     else if (s1==0){
         int s2=fork();
+        
+        
         if (s2<0)
         {
             printf("Scheduler initialisation failed!\n");
@@ -305,15 +187,22 @@ void shell_loop()
         }
         else if(s2==0){
             char* data[2] = {"./scheduler", NULL};
-            printf("grandchild\n");
+            // printf("grandchild\n");
+            shm->scheduler_pid=getpid();
+            printf("bhai %d  %d\n",shm->scheduler_pid,getpid());
             if (execvp(data[0], data) == -1) {
                 fprintf(stderr, "Error executing command.\n");
                 exit(1);
             }
         }
-        else _exit(0);       
+        else 
+        {
+            printf("s2 %d", getpid());
+            _exit(0);  }     
     }
     else{
+        // sleep(2);
+        
         do{
             //Takes input from the user for the command to be executed
             printf("\niiitd@system:~$ ");
@@ -349,6 +238,7 @@ void shell_loop()
             // }
             free(command);
         } while (status);
+        
     }
 
     // Deleting the shared memory
