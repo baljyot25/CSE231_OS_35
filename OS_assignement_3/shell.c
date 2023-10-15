@@ -149,10 +149,12 @@ static void syscall_handler(int signum)
         // //Empties the line variable and readies it for more commands to be added for storing in the history
         // memset(shm->line,'\0',sizeof(shm->line));
         // history();
-        if (kill(shm->scheduler_pid, SIGINT) != 0)
-        {
-            perror("Error sending signal");
-        }
+        // printf("making is_shell_exi 1\n");
+        shm->is_shell_exit=1;
+        // if (kill(shm->scheduler_pid, SIGUSR2) != 0)
+        // {
+        //     perror("Error sending signal");
+        // }
         // printf("scheduler pid %d\n",shm->scheduler_pid);
         // sleep(10);
         // wait(NULL);
@@ -194,6 +196,7 @@ void shell_loop()
     shm->tslice_shm = tslice;
     shm->n_process = 0;
     // create_queue();
+    shm->is_shell_exit=0;
     shm->size = 0;
     // for(int i = 0;i<MAX_LINE_LENGTH;i++){
     //     (shm->line)[i] = '\0';
