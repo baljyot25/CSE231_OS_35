@@ -1,46 +1,56 @@
 #include "common.h"
 
-
-
-struct timespec start_time_of_exec;
-struct timespec end_time_of_exec;
-
+//Initialising the file descriptor required for the history.txt
 FILE *f1;
 
+//Initialising the pid variables
 pid_t parent_pid;
 pid_t pid;
+
+//Initialising the variable to store the details of commands in history.txt
 char* line;
 
+//Initialising the variables for storing ncpus and tslice
 int ncpus = 0;
 double tslice = 0.0;
 
+//Initialising the timer varibale used in set_alarm
 struct itimerval timer;
 
+//Initialising the variable to store process details before enqueuing
 Process* com_arr;
 
+//Initialising the variable for shared memory
 shm_t* shm;
 
+//Initialising the variable to store the total number of processes in all queues
 int count = 0;
 
+//Initialising the variable to store the number of running processes in each tslice
 int current_process_counter = 0;
 
+// Initialising the variable the store the processes which are running in each tslice
 Process** process_arr;
 
-pid_t* pid_arr;
+// //Decalring the function syscall
+// static void syscall_handler(int signum);
 
-static void syscall_handler(int signum);
-
+//Declaring the function round_robin()
 void round_robin();
 
+//Initialising the 4 priority queues
 Queue* q1;
 Queue* q2;
 Queue* q3;
 Queue* q4;
 
+//Initialising the file descriptor for the shared memory
 int fd;
 
+//Initialising the variable to store whether Ctrl-C has been called on the shell
 int is_shell_exit=0;
 
+//Function to return the queue pointer according to the queue_number passed as an argument
 Queue* return_queue(int i){
     if(i==1) return q1;
     else if(i==2) return q2;
@@ -48,98 +58,64 @@ Queue* return_queue(int i){
     else if(i==4) return q4;
 }
 
-void print_q(int i)
-{
-    printf("this is queue %d\n",i);
-    Queue* q=return_queue(i);
-     printf("starting q printing.....\n");
-    if (q==NULL)
-    {
-        printf("queue is null\n");
-        return;
-    }
-    else if (q->front==NULL)
-    {
-        printf("q is empty\n");
-        printf ("status of q->end %d\n",q->end==NULL);
-        return ;
-    }
-    // printf("cleared empty area\n");
-    Node * temp=q->front;
-    Process *p;
-    while(temp!=NULL)
-    {
-        p=temp->process_data;
-        printf("f1  %d\n",p->f1);
-        // printf("idhar toh aana chahiye\n");
-        int j=0;
-        printf("command : %d  ",p->com[0][0]);
-        while((p->com)[j]!=NULL)
-        {
-            printf(" %s ",(p->com)[j++]);
-
-        }
-        printf("\n");
-        temp=temp->next;
-        // printf("queue->front==temp  %d\n", q->front==temp);
-    }
-    printf("ending q printing....\n");
-}
-
+//Function to create all 4 priority queues
 void create_queue(){
-    // printf("create queue \n");
+    //Malloc all 4 priority queues
     q1 = (Queue*)malloc(sizeof(Queue));
     q2 = (Queue*)malloc(sizeof(Queue));
     q3 = (Queue*)malloc(sizeof(Queue));
     q4 = (Queue*)malloc(sizeof(Queue));
-    //printf("inside create_process  %d\n", q==NULL);
+
+    //Checks for malloc error
     if(!(q1) || !(q2) || !(q3) || !(q4)){
         printf("Memory allocation error for queue!");
         exit(7);
     }
+
+    //Making the front and end pointers of each queue as NULL
     (q1)->front = (q1)->end = NULL;
     (q2)->front = (q2)->end = NULL;
     (q3)->front = (q3)->end = NULL;
     (q4)->front = (q4)->end = NULL;
-    // printf("queue created\n");
-    //  printf("ncpus %d\n", shm->q_shm->end==NULL);
 }
 
+//Function to enqueue a process, takes the process to be enqueued and the queue in which it is to be enqueued as arguments
 void enqueue(Process* p, Queue* q){
+
+    //Increasing the number of total processes.
     count++;
 
-    // printf("\nenq stared\n");
-    // printf("first word of the process name %s\n",p->com[0]);
-    // if (q->end!=NULL)   printf("\nq ka end currently  %s\n", q->end->process_data->com[0]);
+    //Creating a new process node using malloc
     Node* newnode = (Node*)malloc(sizeof(Node));
+
+    //Checking for malloc error
     if(!newnode){
         printf("Memmory allocation error for new node!");
         exit(8);
     }
-    // printf("\nenq stared\n");
+
+    //Setting the values of the new node created
     newnode->process_data = p;
     newnode->next = NULL;
-    // printf("\nenq stared\n");
-    if(!(q)->end){
-        // printf("\nidhar hun\n");
-        // printf("q is empty here\n");
 
+    //Checking to see if queue is empty
+    if(!(q)->end){
+        //Executes if queue is empty
         (q)->front = (q)->end = newnode;
-        // printf("\nq ka end currently  %s\n", q->end->process_data->com[0]);
-        // print_q();
-        // printf("enque done\n");
         return;
     }
-    // printf("\nenq stared\n");
-    
+
+    //Executes if queue is not empty
     (q)->end->next = newnode;
     (q)->end = newnode;
-    // print_q();
-    // printf("enq done\n");
 }
 
+//Function to dequeue a process from a specified queue which it takes as an argument and finally returns the dequeued process
 Process* dequeue(Queue* q){
+    //Decreasing the number of total processes
     count--;
+
+    //Checking if the queue passed is empty
     if(!q->front){
         printf("Scheduler Table is empty!");
         return NULL;
@@ -159,43 +135,57 @@ int isEmpty(Queue* q){
 
 void add_processes()
 {
-    for (int i=shm->size-shm->n_process;i<shm->size;i++){ 
-        com_arr=(Process*)malloc(sizeof(Process));
-        com_arr->com_name = (char*)malloc(MAX_INPUT_LENGTH*sizeof(char));  
+    for (int i = shm->size - shm->n_process; i < shm->size; i++)
+    {
+        com_arr = (Process *)malloc(sizeof(Process));
+        if (com_arr == NULL) {  
+            perror("Error allocating memory for com_arr");
+            exit(1); // or handle the error in an appropriate way
+            }
+        com_arr->com_name = (char *)malloc(MAX_INPUT_LENGTH * sizeof(char));
+        if (com_arr->com_name == NULL) {
+            free(com_arr); // Free the previously allocated memory
+            perror("Error allocating memory for com_arr->com_name");
+            exit(1); // or handle the error in an appropriate way
+        }
         int j = 0;
-        while ((shm->process_name)[i][j][0] != 0){
-            com_arr->com[j] = (char*)malloc(MAX_INPUT_LENGTH*sizeof(char));
-            strcpy(com_arr->com[j],(shm->process_name)[i][j]);
-            strcat(com_arr->com_name,(shm->process_name)[i][j]);
+        while ((shm->process_name)[i][j][0] != 0)
+        {
+            com_arr->com[j] = (char *)malloc(MAX_INPUT_LENGTH * sizeof(char));
+            if (com_arr->com[j] == NULL) {
+                 perror("Error allocating memory for com_arr->com[j]");
+                 exit(1);
+            }
+            strcpy(com_arr->com[j], (shm->process_name)[i][j]);
+            strcat(com_arr->com_name, (shm->process_name)[i][j]);
             strcat(com_arr->com_name, " ");
             j++;
         }
-        shm->n_process=0;
+        shm->n_process = 0;
         com_arr->com[j] = NULL;
         com_arr->f1 = 0;
-        int x = com_arr->com[j-1][0]-'0';
-        
+        int x = com_arr->com[j - 1][0] - '0';
 
-        if(!(x<=4 && x>=1)) 
-        {x = 1;com_arr->priority_no = x;}
-        else{
+        if (!(x <= 4 && x >= 1))
+        {
+            x = 1;
             com_arr->priority_no = x;
-            com_arr->com[j-1]=NULL ;         
-
         }
-        
-           
-            
-        if(x==1) enqueue(com_arr,q1);
-        else if(x==2) enqueue(com_arr,q2);
-        else if(x==3) enqueue(com_arr,q3);
-        else if(x==4) enqueue(com_arr,q4);
-    
-        
+        else
+        {
+            com_arr->priority_no = x;
+            com_arr->com[j - 1] = NULL;
+        }
 
-        
+        if (x == 1)
+            enqueue(com_arr, q1);
+        else if (x == 2)
+            enqueue(com_arr, q2);
+        else if (x == 3)
+            enqueue(com_arr, q3);
+        else if (x == 4)
+            enqueue(com_arr, q4);
     }
-    
 }
 
 //Function to get the history (all commands that have been submitted into the scheduler)
@@ -225,22 +215,28 @@ void sigchld_handler(int signum, siginfo_t *info, void *context){
             //Adding the details of the terminated process to the history.txt
             // printf("1\n");
             line = (char*)malloc(MAX_INPUT_LENGTH*sizeof(char));
+            if (line == NULL) {
+                // Handle the error, for example, print an error message
+                perror("Error allocating memory for 'line'");
+                // You might want to exit or handle the error in an appropriate way
+                exit(1); // or handle the error in a way that suits your application
+            }
             // printf("2\n");
             char s1[50];
             // printf("3\n");
             strcat(line, "Command: ");
             strcat(line, process_arr[i]->com_name);
             // printf("4\n");
-            strcat(line, "\tPID: ");
+            strcat(line, "\t PID: ");
             sprintf(s1, "%d", process_arr[i]->pid);
             strcat(line, s1);
             // printf("5\n");
-            strcat(line, "\tExecution Duration: ");
+            strcat(line, "\t Execution Duration: ");
             sprintf(s1, "%f", process_arr[i]->exec_time);
             strcat(line, s1);
             strcat(line, " milliseconds ");
             // printf("6\n");
-            strcat(line,"\tWait Time: ");
+            strcat(line,"\t Wait Time: ");
             sprintf(s1, "%f", process_arr[i]->waiting_time);
             strcat(line, s1);
             strcat(line, " milliseconds ");
@@ -269,8 +265,6 @@ void sigchld_handler(int signum, siginfo_t *info, void *context){
     }
 }
 
-
-
 void set_waiting_time(Queue* q){
     Node* temp = q->front;
     while(temp!=NULL){
@@ -285,7 +279,7 @@ void scheduler_syscall_handler(int signum){
         for (int i=0;i<current_process_counter;i++){
             int status;
             if (process_arr[i]!=NULL && process_arr[i]->f1 != 2){
-                kill(process_arr[i]->pid,SIGSTOP);
+                if (kill(process_arr[i]->pid, SIGSTOP)!=0) printf("error in SIGSTOP\n");
                 process_arr[i]->exec_time += tslice;   
             }
         }
@@ -369,7 +363,12 @@ void set_alarm(int tslice) {
         timer.it_interval.tv_sec = timer.it_interval.tv_usec = 0;
     }
     
-    setitimer(ITIMER_REAL, &timer, NULL); // Start the timer
+    // Start the timer
+    if (setitimer(ITIMER_REAL, &timer, NULL) == -1) {
+        perror("Error setting the timer");
+        // Handle the error, for example, exit the program or take appropriate action.
+        exit(1); // or handle the error as needed for your application
+    }
 }
 
 int create_process_and_run2(Process* p, int i) {
@@ -379,7 +378,7 @@ int create_process_and_run2(Process* p, int i) {
     int status = process_arr[i]->pid = fork(); //Creates a child process
     if(status < 0) { //Handles the case when the child process terminates abruptly
         printf("Process terminated abnormally!");
-        return 0;
+        exit(2);
     } else if(status == 0){ 
        
         // printf(" child\n");
@@ -458,7 +457,7 @@ void round_robin(){
             // }
             // //Add to the waiting time of the process
             // p->waiting_time += (double)((p->end_time.tv_sec - p->start_time.tv_sec) * 1000.0) + ((p->end_time.tv_nsec - p->start_time.tv_nsec) / 1000000.0);
-            kill(p->pid,SIGCONT);
+            if (kill(p->pid, SIGCONT)!=0) printf("error in SIGCONT");
         }
     }
 
