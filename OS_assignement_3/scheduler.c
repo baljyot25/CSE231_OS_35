@@ -85,9 +85,6 @@ void create_queue(){
 //Function to enqueue a process, takes the process to be enqueued and the queue in which it is to be enqueued as arguments
 void enqueue(Process* p, Queue* q){
 
-    //Increasing the number of total processes.
-    count++;
-
     //Creating a new process node using malloc
     Node* newnode = (Node*)malloc(sizeof(Node));
 
@@ -101,6 +98,8 @@ void enqueue(Process* p, Queue* q){
     newnode->process_data = p;
     newnode->next = NULL;
     if(p->f1 == 0){
+        //Increasing the number of total processes
+        count++;
         //If the process is a new process ()(i.e., it has never been executed before) then start the timer for the response time
         if(clock_gettime(CLOCK_MONOTONIC, &p->start_time) == -1){
             printf("Error executing clock_gettime!");
@@ -122,8 +121,6 @@ void enqueue(Process* p, Queue* q){
 
 //Function to dequeue a process from a specified queue which it takes as an argument and finally returns the dequeued process
 Process* dequeue(Queue* q){
-    //Decreasing the number of total processes
-    count--;
 
     //Checking if the queue passed is empty
     if(!q->front){
@@ -177,7 +174,7 @@ void add_processes()
         int j = 0;
 
         //Running the while loop until the word of the selected command starts with the null character
-        while ((shm->process_name)[i][j][0] != '\0')
+        while ((shm->process_name)[i][j][0] != 0)
         {
             //Allocating space for the word to be stored in the com field of the com_arr and checking malloc error
             //(Note: Here, the com field of the com_arr stores the words of the command passed in a tokenised format) 
@@ -307,6 +304,10 @@ void sigchld_handler(int signum, siginfo_t *info, void *context){
             }
             //Empties the line variable and readies it for more commands to be added for storing in the history
             memset(line,'\0',sizeof(line));
+
+            //Decreasing the number of total processes
+            count--;
+
             sem_post(&sem);
             return;
         }
@@ -342,7 +343,6 @@ void scheduler_syscall_handler(int signum){
         
         //Enqueuing the new processes that were sent during the tslice
         add_processes();
-        
         //Iterating over the processes which were running during the previous tslice
         for(int i = 0;i<current_process_counter;i++){
             //Checking if the process is an unfinished process
@@ -364,11 +364,9 @@ void scheduler_syscall_handler(int signum){
         round_robin();
 
         //Enters into the below if block if Ctrl-C has been pressed in shell
-        if (is_shell_exit==1)
-        {
+        if (is_shell_exit==1){
             //Checks if all the queued processes have been completed and there are no more running processes
-            if (isEmpty(q1) && isEmpty(q2) && isEmpty(q3) && isEmpty(q4) && current_process_counter==0)
-            {
+            if (count == 0){
                 //Printing the details of all the commands that had been given to the scheduler for execution 
                 printf("\n");
                 printf("Ctrl-C pressed....\n");
