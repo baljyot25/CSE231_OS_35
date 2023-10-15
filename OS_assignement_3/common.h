@@ -40,6 +40,7 @@ typedef struct queue{
 }Queue;
 
 typedef struct shm_t {
+    int is_shell_exit;
     pid_t scheduler_pid;
     pid_t shell_pid;
     int size;
