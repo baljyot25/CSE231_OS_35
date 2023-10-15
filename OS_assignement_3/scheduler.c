@@ -262,6 +262,8 @@ void sigchld_handler(int signum, siginfo_t *info, void *context){
             //Adding the tslice to the execution time of the process.
             process_arr[i]->exec_time += tslice;
 
+            //Using sem_wait and sem_post for updating the history.txt to avoid race condition if too many processes are ending at almost the same time
+            sem_wait(&sem);
             //Allocating memory for the variable line to store the data of the terminated process in history.txt and handling the malloc error
             line = (char*)malloc(MAX_INPUT_LENGTH*sizeof(char));
             if (line == NULL) {
@@ -305,6 +307,7 @@ void sigchld_handler(int signum, siginfo_t *info, void *context){
             }
             //Empties the line variable and readies it for more commands to be added for storing in the history
             memset(line,'\0',sizeof(line));
+            sem_post(&sem);
             return;
         }
     }
@@ -389,6 +392,7 @@ void scheduler_syscall_handler(int signum){
                 free(line);
                 munmap(shm, sizeof(shm_t));
                 close(fd);
+                sem_destroy(&sem);
                 exit(10);
             }
         }
