@@ -50,8 +50,6 @@ Queue* q4;
 //Initialising the file descriptor for the shared memory
 int fd;
 
-//Initialising the variable to store whether Ctrl-C has been called on the shell
-int is_shell_exit=0;
 
 //Function to return the queue pointer according to the queue_number passed as an argument
 Queue* return_queue(int i){
@@ -98,8 +96,8 @@ void enqueue(Process* p, Queue* q){
     newnode->process_data = p;
     newnode->next = NULL;
     if(p->f1 == 0){
-        //Increasing the number of total processes
-        count++;
+       
+        
         //If the process is a new process ()(i.e., it has never been executed before) then start the timer for the response time
         if(clock_gettime(CLOCK_MONOTONIC, &p->start_time) == -1){
             printf("Error executing clock_gettime!");
@@ -223,6 +221,9 @@ void add_processes()
             com_arr->priority_no = x;
             com_arr->com[j - 1] = NULL;
         }
+         //Increasing the number of total processes
+        count++;
+        
 
         //Enqueuing the newly created process according to the new process' priority number
         if (x == 1)
@@ -249,6 +250,7 @@ void history() {
 
 //Function to imitate the system call handler for the syscall "SIGCHLD" which will be generated whenever one of the currently running processes completes its execution
 void sigchld_handler(int signum, siginfo_t *info, void *context){
+    // printf("sigchild called for %d\n", info->si_pid);
 
     //Iterating over all the processes stored in the process_arr to identify which process has terminated
     for(int i = 0;i<current_process_counter;i++){
@@ -256,6 +258,10 @@ void sigchld_handler(int signum, siginfo_t *info, void *context){
         if(process_arr[i]!=NULL &&   process_arr[i]->pid == info->si_pid){
             //Setting the terminated process' flag to 2 to indicate that the process has finished its execution
             process_arr[i]->f1=2;
+
+             //Decreasing the number of total processes
+            count--;
+           
             //Adding the tslice to the execution time of the process.
             process_arr[i]->exec_time += tslice;
 
@@ -306,7 +312,7 @@ void sigchld_handler(int signum, siginfo_t *info, void *context){
             memset(line,'\0',sizeof(line));
 
             //Decreasing the number of total processes
-            count--;
+            
 
             sem_post(&sem);
             return;
@@ -324,6 +330,7 @@ void set_waiting_time(Queue* q){
 
 void scheduler_syscall_handler(int signum){
     if(signum == SIGALRM){ //Catches SIGALRM signal and handles it accordingly
+   
         //Iterates over all the processes in the process_arr
         for (int i=0;i<current_process_counter;i++){
             int status;
@@ -364,9 +371,10 @@ void scheduler_syscall_handler(int signum){
         round_robin();
 
         //Enters into the below if block if Ctrl-C has been pressed in shell
-        if (is_shell_exit==1){
+        if (shm->is_shell_exit==1){
             //Checks if all the queued processes have been completed and there are no more running processes
-            if (count == 0){
+            if (count == 0 && isEmpty(q1)&&isEmpty(q2)&&isEmpty(q3)&&isEmpty(q4)){
+                printf("Entered inside last block!\n");
                 //Printing the details of all the commands that had been given to the scheduler for execution 
                 printf("\n");
                 printf("Ctrl-C pressed....\n");
@@ -395,9 +403,7 @@ void scheduler_syscall_handler(int signum){
             }
         }
     }
-    else if(signum == SIGINT){ //Catches SIGINT signal when a SIGINT is generated in shell and handles it accordingly
-        is_shell_exit=1;
-    }    
+       
 }
 
 void set_alarm() {     
@@ -500,7 +506,9 @@ int main()
     memset(&sig1, 0, sizeof(sig1));
     sig1.sa_handler = scheduler_syscall_handler;
     signal(SIGALRM, scheduler_syscall_handler);
-    signal(SIGINT, scheduler_syscall_handler);
+   
+   // this step is to ensure that when scheduler receives sigint from shell , it does not terminates its child.
+    signal(SIGINT, SIG_IGN);
 
     struct sigaction sig2;
     memset(&sig2, 0, sizeof(sig2));
@@ -508,6 +516,7 @@ int main()
     sig2.sa_flags = SA_NOCLDSTOP | SA_SIGINFO;
     sigemptyset(&sig2.sa_mask);
     sigaction(SIGCHLD, &sig2, NULL);
+
 
     //Opens the history.txt file and checks if the file has been opened correctly or not
     f1 = fopen("history.txt", "w+");
@@ -522,6 +531,7 @@ int main()
     shm =(shm_t*)mmap(NULL, sizeof(shm_t), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     ncpus=shm->ncpus_shm;
     tslice=shm->tslice_shm;
+    shm->is_shell_exit=0;
     create_queue();
 
     //Initialisng the semaphore required in the sigchld_handler function
@@ -540,7 +550,7 @@ int main()
     }
 
     //Initialises the process_arr variable used to store the processes in the running queue.
-    process_arr=(Process**)malloc(ncpus*sizeof(Process*));
+    process_arr=(Process**)malloc(ncpus*sizeof(Process));
     for (int i = 0; i < ncpus; i++) {
         process_arr[i] = (Process*)malloc(sizeof(Process));
     }
