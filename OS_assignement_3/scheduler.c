@@ -32,6 +32,9 @@ int current_process_counter = 0;
 // Initialising the variable the store the processes which are running in each tslice
 Process** process_arr;
 
+//Declaring the semaphore variable required later
+sem_t sem;
+
 // //Decalring the function syscall
 // static void syscall_handler(int signum);
 
@@ -98,6 +101,7 @@ void enqueue(Process* p, Queue* q){
     newnode->process_data = p;
     newnode->next = NULL;
     if(p->f1 == 0){
+        //If the process is a new process ()(i.e., it has never been executed before) then start the timer for the response time
         if(clock_gettime(CLOCK_MONOTONIC, &p->start_time) == -1){
             printf("Error executing clock_gettime!");
             exit(1);
@@ -126,63 +130,104 @@ Process* dequeue(Queue* q){
         printf("Scheduler Table is empty!");
         return NULL;
     }
+
+    //Storing the node pointed to by the front of the queue into temp and updating the front of the queue
     Node* temp = q->front;
     Process* p = temp->process_data;
     q->front = temp->next;
+
+    //Making the end of the queue NULL if the front of the queue is also NULL after dequeuing
     if(!q->front) q->end = NULL;
+
+    //freeing the temp node
     free(temp);
+
+    //Returning the aquired process node from the queue
     return p;
 } 
 
+//Function to check whether the queue (passed as an argument) is empty or not (by checking whether both front and the end of the passed queue are NULL)
 int isEmpty(Queue* q){
     if(q->front == NULL && q->end == NULL) return 1;
     else return 0;
 }
 
+//Function to take the commands passed to the scheduler from the shell input via the shared memory, to create the process nodes and add them into the appropriate queue
 void add_processes()
 {
+    //Iterating over the new commands added into the shared memory array
     for (int i = shm->size - shm->n_process; i < shm->size; i++)
     {
+        //Allocating space for the com_arr variable and checking for any errors in malloc
         com_arr = (Process *)malloc(sizeof(Process));
         if (com_arr == NULL) {  
             perror("Error allocating memory for com_arr");
-            exit(1); // or handle the error in an appropriate way
-            }
+            exit(1);
+        }
+
+        //Allocating sspace for the com_arr field com_name which stores the name of the command given as input by the user to the shell and also checking for malloc errors
         com_arr->com_name = (char *)malloc(MAX_INPUT_LENGTH * sizeof(char));
         if (com_arr->com_name == NULL) {
             free(com_arr); // Free the previously allocated memory
             perror("Error allocating memory for com_arr->com_name");
-            exit(1); // or handle the error in an appropriate way
+            exit(1);
         }
+
+        //Initialising the variable to iterate over every single word of the command selected
         int j = 0;
-        while ((shm->process_name)[i][j][0] != 0)
+
+        //Running the while loop until the word of the selected command starts with the null character
+        while ((shm->process_name)[i][j][0] != '\0')
         {
+            //Allocating space for the word to be stored in the com field of the com_arr and checking malloc error
+            //(Note: Here, the com field of the com_arr stores the words of the command passed in a tokenised format) 
             com_arr->com[j] = (char *)malloc(MAX_INPUT_LENGTH * sizeof(char));
             if (com_arr->com[j] == NULL) {
                  perror("Error allocating memory for com_arr->com[j]");
                  exit(1);
             }
+
+            //Copying the word from the shared memory array into the com field of com_arr
             strcpy(com_arr->com[j], (shm->process_name)[i][j]);
+            //Concatenating the word of the shared memory array with the com_name field of the com_arr
             strcat(com_arr->com_name, (shm->process_name)[i][j]);
             strcat(com_arr->com_name, " ");
+
+            //Increasing the word counter
             j++;
         }
+
+        //Resetting the number of new processes to be added to 0;
         shm->n_process = 0;
+
+        //Setting the last word of the com field of the com_arr to be NULL to pass the array into the execvp function without errors
         com_arr->com[j] = NULL;
+
+        //Setting the flag of the newly added process to 0
+        //(Note: Here, the flag can three values for each process which are as follows:
+        //1) f1 = 0 implies newly added process, has not been executed even once
+        //2) f1 = 1 implies an old process, has been executed for at least one tslice
+        //3) f1 = 2 implies a finished process, which has completed its execution)
         com_arr->f1 = 0;
+
+        //Calculating the priority number of the newly created process
         int x = com_arr->com[j - 1][0] - '0';
 
+        //Checking whether the priority number passed is not <=4 and >=1
         if (!(x <= 4 && x >= 1))
         {
+            //Setting the priority number of the newly created process as 1 if no priority number is passed and also if the priority number is <=0 or >4
             x = 1;
             com_arr->priority_no = x;
         }
         else
         {
+            //Setting the priority number as passed by the user
             com_arr->priority_no = x;
             com_arr->com[j - 1] = NULL;
         }
 
+        //Enqueuing the newly created process according to the new process' priority number
         if (x == 1)
             enqueue(com_arr, q1);
         else if (x == 2)
@@ -205,43 +250,38 @@ void history() {
     }
 }
 
+//Function to imitate the system call handler for the syscall "SIGCHLD" which will be generated whenever one of the currently running processes completes its execution
 void sigchld_handler(int signum, siginfo_t *info, void *context){
-    // printf("SigChld caught!\n");
-    // printf("info  %d\n",info->si_pid);
-    int status;
+
+    //Iterating over all the processes stored in the process_arr to identify which process has terminated
     for(int i = 0;i<current_process_counter;i++){
-        
+        //Comparing each process' pid stored in the process_arr with the pid of the process that has sent the SIGCHLD signal
         if(process_arr[i]!=NULL &&   process_arr[i]->pid == info->si_pid){
-            // process has terminated
-            // printf("yahi hoon main\n");
+            //Setting the terminated process' flag to 2 to indicate that the process has finished its execution
             process_arr[i]->f1=2;
-            // count--;
+            //Adding the tslice to the execution time of the process.
             process_arr[i]->exec_time += tslice;
-            // printf("yaha aagya hoon main\n");
-            //Adding the details of the terminated process to the history.txt
-            // printf("1\n");
+
+            //Allocating memory for the variable line to store the data of the terminated process in history.txt and handling the malloc error
             line = (char*)malloc(MAX_INPUT_LENGTH*sizeof(char));
             if (line == NULL) {
-                // Handle the error, for example, print an error message
-                perror("Error allocating memory for 'line'");
-                // You might want to exit or handle the error in an appropriate way
-                exit(1); // or handle the error in a way that suits your application
+                printf("Error allocating memory for 'line'");
+                exit(1);
             }
-            // printf("2\n");
+
+            //Defining variable s1 to concatenate double or int values to line variable by converting them into string
             char s1[50];
-            // printf("3\n");
+
+            //Adding the details of the terminated process to the line char array
             strcat(line, "Command: ");
             strcat(line, process_arr[i]->com_name);
-            // printf("4\n");
             strcat(line, "\t PID: ");
             sprintf(s1, "%d", process_arr[i]->pid);
             strcat(line, s1);
-            // printf("5\n");
             strcat(line, "\t Execution Duration: ");
             sprintf(s1, "%f", process_arr[i]->exec_time);
             strcat(line, s1);
             strcat(line, " milliseconds ");
-            // printf("6\n");
             strcat(line,"\t Wait Time: ");
             sprintf(s1, "%f", process_arr[i]->waiting_time);
             strcat(line, s1);
@@ -254,27 +294,17 @@ void sigchld_handler(int signum, siginfo_t *info, void *context){
             sprintf(s1, "%f", (double)((process_arr[i]->end_time.tv_sec - process_arr[i]->start_time.tv_sec) * 1000.0) + ((process_arr[i]->end_time.tv_nsec - process_arr[i]->start_time.tv_nsec) / 1000000.0));
             strcat(line, s1);
             strcat(line, " milliseconds ");
-
-
-            // printf("7\n");
             strcat(line, "\n\0");
-            
 
-            // printf("sigchild almost ended\n");
-            // return ;
-            // printf("8\n");
+            //Putting the contents of the lien char array into history.txt
             int r = fputs(line, f1);
-            // printf("9\n");
             fflush(f1);
-            // printf("10\n");
             if(r == EOF){
                 printf("Fputs error!");
                 exit(1);
             }
             //Empties the line variable and readies it for more commands to be added for storing in the history
-            // printf("11\n");
             memset(line,'\0',sizeof(line));
-            // free(line);
             return;
         }
     }
@@ -289,43 +319,54 @@ void set_waiting_time(Queue* q){
 }
 
 void scheduler_syscall_handler(int signum){
-    if(signum == SIGALRM){ 
-        // printf("sigalarm invoked\n") ;      
+    if(signum == SIGALRM){ //Catches SIGALRM signal and handles it accordingly
+        //Iterates over all the processes in the process_arr
         for (int i=0;i<current_process_counter;i++){
             int status;
+            //Checks if the entry of the process_arr is not NULL and the process has not completed its execution
             if (process_arr[i]!=NULL && process_arr[i]->f1 != 2){
+                //The scheduler sends a SIGSTOP signal to all the running processes in the process_arr to stop their execution temporarily
                 if (kill(process_arr[i]->pid, SIGSTOP)!=0) printf("error in SIGSTOP\n");
+                //Adding the tslice to the execution time of the process
                 process_arr[i]->exec_time += tslice;   
             }
         }
+
+        //Iterating over all the waiting processes in the queues and adding tslice to their waiting times
         for(int i = 1;i<=4;i++){
             set_waiting_time(return_queue(i));
         }
         
+        //Enqueuing the new processes that were sent during the tslice
         add_processes();
         
+        //Iterating over the processes which were running during the previous tslice
         for(int i = 0;i<current_process_counter;i++){
+            //Checking if the process is an unfinished process
             if(process_arr[i]->f1 == 1) {
+                //After every tslice, all processes are moved to the lower priority queue
+                //Enqueuing the unfinished processes into the appropriate queues by updating their priority numbers and folowing the above rule
                 if(process_arr[i]->priority_no == 4) enqueue(process_arr[i],return_queue(4));
                 else{
-                    // printf("printf priority changes ");
                     process_arr[i]->priority_no += 1;
                     enqueue(process_arr[i],return_queue(process_arr[i]->priority_no));            
                 }                
             }
         }
-        // printf("\nprinting every queue after priority changing \n");
-        // print_q(1);
-        // print_q(2);
-        // print_q(3);
-        // print_q(4);
-       
+
+        //Reseting the number of running processes in the process_arr
         current_process_counter=0;
+
+        //Calling round_robin function to simulate the round_robin algorithm of selecting and executing the processes
         round_robin();
+
+        //Enters into the below if block if Ctrl-C has been pressed in shell
         if (is_shell_exit==1)
         {
+            //Checks if all the queued processes have been completed and there are no more running processes
             if (isEmpty(q1) && isEmpty(q2) && isEmpty(q3) && isEmpty(q4) && current_process_counter==0)
             {
+                //Printing the details of all the commands that had been given to the scheduler for execution 
                 printf("\n");
                 printf("Ctrl-C pressed....\n");
                 printf("----------------------------------------------------------------------------------------------\n");
@@ -337,10 +378,10 @@ void scheduler_syscall_handler(int signum){
                 // Closing the history file
                 fclose(f1);
 
-               
-                // printf("efj\n");
-                // printf("shell_pid %d\n",shm->shell_pid);
+                //Sending a signal to the shell that the scheduler process is over and that shell should terminate as well
                 kill(shm->shell_pid,SIGTERM);
+
+                //Cleanup before exiting from the scheduler
                 free(q1);
                 free(q2);
                 free(q3);
@@ -348,152 +389,116 @@ void scheduler_syscall_handler(int signum){
                 free(line);
                 munmap(shm, sizeof(shm_t));
                 close(fd);
-                // shm_unlink("/my_shared_memory");
-                // printf("exiting scheduler\n");
                 exit(10);
             }
         }
     }
-    else if(signum == SIGINT){
+    else if(signum == SIGINT){ //Catches SIGINT signal when a SIGINT is generated in shell and handles it accordingly
         is_shell_exit=1;
-        // need to remove this
-        // exit(0);
-
-        // printf("\nsigint  invoked\n");
-        
     }    
 }
 
-void set_alarm(int tslice) { 
-    // Sets the timer
-    // printf("setting alarm with time %d ms\n",tslice);
-    if(tslice >= 10){
-        timer.it_value.tv_sec = tslice / 1000;
-        timer.it_value.tv_usec = ((int)tslice % 1000) * 1000;
-        timer.it_interval.tv_sec = timer.it_interval.tv_usec = 0;
-    }
-    else{
-        timer.it_value.tv_sec = 10 / 1000;
-        timer.it_value.tv_usec = (10 % 1000) * 1000;
-        timer.it_interval.tv_sec = timer.it_interval.tv_usec = 0;
-    }
-    
-    // Start the timer
+void set_alarm() {     
+    // Start the timer or raise error if timer cannot be started
     if (setitimer(ITIMER_REAL, &timer, NULL) == -1) {
         perror("Error setting the timer");
-        // Handle the error, for example, exit the program or take appropriate action.
-        exit(1); // or handle the error as needed for your application
+        exit(1);
     }
 }
 
 int create_process_and_run2(Process* p, int i) {
+    //Sets the flag of the about to be run process to running
     process_arr[i]->f1=1;
     int ret;
-    // printf("cpr2 has started\n");
     int status = process_arr[i]->pid = fork(); //Creates a child process
     if(status < 0) { //Handles the case when the child process terminates abruptly
         printf("Process terminated abnormally!");
         exit(2);
     } else if(status == 0){ 
-       
-        // printf(" child\n");
-        //Executes the command by using the inbuilt execvp function
-        // printf("pid by child %d\n", getpid());
+        //Executes the command stored in com field of the process passed to the function by using the inbuilt execvp function
         if (execvp(process_arr[i]->com[0], process_arr[i]->com) == -1) {
             fprintf(stderr, "Error executing command.\n");
             exit(1);
         }
-     
     }
-    // printf("pid by parent %d\n",process_arr[i]->pid);
     return 1;
 }
 
 void round_robin(){
-    // print_q();
-    // printf("round robin started\n");
+    //Initialising the p variable to store the process from the process_arr
     Process* p = NULL;
-    // printf("current process counter %d\n",current_process_counter);
-    // printf("1\n");
+
+    //Checking whether all the 4 priority queues are empty or not
     if (isEmpty(q1) && isEmpty(q2) && isEmpty(q3) && isEmpty(q4))
     {
-        set_alarm(tslice);
-        // printf("round robin ended\n");
-        // usleep(1000*tslice);
+        //If all 4 queues are empty then again wait for user input
+        set_alarm();
         return;
     }
-    // printf("line 390\n");
+
+    //Setting the number of processes to be run during this tslice according to number of processors and processes available 
     current_process_counter = (ncpus < count) ? ncpus : count;
+
+    //initialising the q variable
     Queue* q;
+
+    //Initialising the c and cur variables to keep track of total number of processes dequeued and total processes dequeued from a particluar queue respectively
     int c=0,cur=0;
-    // printf("count : %d\ncurrent process counter %d\n", count,current_process_counter);
+
+    //Iterating over all 4 priority queues
     for(int i = 1;i<=4;i++){
-        // cur = c;
+        //setting the q to the pointer of the queue corresponding to the value of i
         q = return_queue(i);
+
+        //Looping till the total processes dequeued is not equal to the number of processes that needs to be dequeued in this tslice
         while(c<current_process_counter){
-            // printf("1  ");
-            if(isEmpty(q)){
+            if(isEmpty(q)){ //Break if the current queue is empty
                 break;
             }
-            process_arr[c] = dequeue(q);    
+
+            //Dequeuing from the current queue and storing in the process_arr
+            process_arr[c] = dequeue(q);
+
+            //Incrementing the total number of processes that have been dequeued so far
             c++;
         }
-        // if (cur==c) continue;
-        // set_alarm(q->tslice);
-        // for (int j = cur;j < c;j++){
-        //     p = process_arr[j];
-        //     if(p->f1 == 0){
-        //         // printf("12\n");
-        //         create_process_and_run2(p,j);
-        //         // printf("13\n");
-        //     }
-        //     else if(p->f1 == 1){
-        //         kill(p->pid,SIGCONT);
-        //     }
-        // }
+
+        //If the total processes dequeued has reached the number of processes that had to be dequeued then break from the for loop, irrespective of whether each queue has been visited or not
         if(c==current_process_counter){
             break;
         }   
     }
-    set_alarm(tslice);
-        // printf("after set alarm\n");
+
+    //Starting the timer for the tslice
+    set_alarm();
+
+    //Iterating over each entry of the process_arr
     for (int i = 0;i < current_process_counter;i++){
         p = process_arr[i];
         if(p->f1 == 0){
-            // printf("12\n");
+            //End the timer of the response time
             if(clock_gettime(CLOCK_MONOTONIC, &p->end_time) == -1){
                 printf("Error executing clock_gettime!");
                 exit(1);
             }
+            //If the process at the ith index of the process_arr has never been executed before, then create a new process and lauch the new process
             create_process_and_run2(p,i);
-            // printf("13\n");
         }
         else if(p->f1 == 1){
-            // printf("14\n");
-            // if(clock_gettime(CLOCK_MONOTONIC, &p->end_time) == -1){
-            //     printf("Error executing clock_gettime!");
-            //     exit(1);
-            // }
-            // //Add to the waiting time of the process
-            // p->waiting_time += (double)((p->end_time.tv_sec - p->start_time.tv_sec) * 1000.0) + ((p->end_time.tv_nsec - p->start_time.tv_nsec) / 1000000.0);
+            //If the process at the ith index of the process_arr has been executed before, then start the process from where it left off in the previous tslice
             if (kill(p->pid, SIGCONT)!=0) printf("error in SIGCONT");
         }
     }
-
-
-
-    // printf("round robin ended\n");
 }
 
 int main()
 {
+    //Initialising the required signals and linking them to their respective handlers
     struct sigaction sig1;
     memset(&sig1, 0, sizeof(sig1));
     sig1.sa_handler = scheduler_syscall_handler;
-    
     signal(SIGALRM, scheduler_syscall_handler);
     signal(SIGINT, scheduler_syscall_handler);
-    // sigaction(SIGTERM, &sig1, NULL);
 
     struct sigaction sig2;
     memset(&sig2, 0, sizeof(sig2));
@@ -509,7 +514,7 @@ int main()
         exit(1);
     }
 
-    //Links the variables with the shared memory
+    //Create sthe link to the shared memory of the shell and links the scheduler variables with the shared memory
     fd = shm_open("/my_shared_memory", O_CREAT | O_RDWR, 0666);
     ftruncate(fd, sizeof(shm_t));
     shm =(shm_t*)mmap(NULL, sizeof(shm_t), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
@@ -517,22 +522,28 @@ int main()
     tslice=shm->tslice_shm;
     create_queue();
 
-    //Setting the time slices for each priority queue.
-    q1->tslice = tslice;
-    q2->tslice = q1->tslice / 2;
-    q3->tslice = q2->tslice / 2;
-    q4->tslice = q3->tslice / 2;
+    //Initialisng the semaphore required in the sigchld_handler function
+    sem_init(&sem,0,1);
+
+    //Setting the timer to be used for simulating the tslice in the program
+    if(tslice >= 10){
+        timer.it_value.tv_sec = tslice / 1000;
+        timer.it_value.tv_usec = ((int)tslice % 1000) * 1000;
+        timer.it_interval.tv_sec = timer.it_interval.tv_usec = 0;
+    }
+    else{
+        timer.it_value.tv_sec = 10 / 1000;
+        timer.it_value.tv_usec = (10 % 1000) * 1000;
+        timer.it_interval.tv_sec = timer.it_interval.tv_usec = 0;
+    }
 
     //Initialises the process_arr variable used to store the processes in the running queue.
-    process_arr=(Process**)malloc(ncpus*sizeof(Process));
+    process_arr=(Process**)malloc(ncpus*sizeof(Process*));
     for (int i = 0; i < ncpus; i++) {
         process_arr[i] = (Process*)malloc(sizeof(Process));
     }
 
-    set_alarm(tslice); 
-    while(1)
-    {
-       usleep(1000*tslice);
-        //need to change this 
-    }
+    //Starting the first tslice
+    set_alarm(); 
+    while(1) usleep(1000*tslice);
 }
