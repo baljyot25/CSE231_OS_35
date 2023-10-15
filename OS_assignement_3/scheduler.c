@@ -97,6 +97,12 @@ void enqueue(Process* p, Queue* q){
     //Setting the values of the new node created
     newnode->process_data = p;
     newnode->next = NULL;
+    if(p->f1 == 0){
+        if(clock_gettime(CLOCK_MONOTONIC, &p->start_time) == -1){
+            printf("Error executing clock_gettime!");
+            exit(1);
+        }
+    }
 
     //Checking to see if queue is empty
     if(!(q)->end){
@@ -240,6 +246,15 @@ void sigchld_handler(int signum, siginfo_t *info, void *context){
             sprintf(s1, "%f", process_arr[i]->waiting_time);
             strcat(line, s1);
             strcat(line, " milliseconds ");
+            strcat(line,"\t Turnaround Time: ");
+            sprintf(s1, "%f", process_arr[i]->waiting_time + process_arr[i]->exec_time);
+            strcat(line, s1);
+            strcat(line, " milliseconds ");
+            strcat(line, "\t Response Time: ");    
+            sprintf(s1, "%f", (double)((process_arr[i]->end_time.tv_sec - process_arr[i]->start_time.tv_sec) * 1000.0) + ((process_arr[i]->end_time.tv_nsec - process_arr[i]->start_time.tv_nsec) / 1000000.0));
+            strcat(line, s1);
+            strcat(line, " milliseconds ");
+
 
             // printf("7\n");
             strcat(line, "\n\0");
@@ -333,7 +348,7 @@ void scheduler_syscall_handler(int signum){
                 free(line);
                 munmap(shm, sizeof(shm_t));
                 close(fd);
-                shm_unlink("/my_shared_memory");
+                // shm_unlink("/my_shared_memory");
                 // printf("exiting scheduler\n");
                 exit(10);
             }
@@ -446,6 +461,10 @@ void round_robin(){
         p = process_arr[i];
         if(p->f1 == 0){
             // printf("12\n");
+            if(clock_gettime(CLOCK_MONOTONIC, &p->end_time) == -1){
+                printf("Error executing clock_gettime!");
+                exit(1);
+            }
             create_process_and_run2(p,i);
             // printf("13\n");
         }
