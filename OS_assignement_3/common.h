@@ -10,6 +10,7 @@
 #include <sys/time.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <semaphore.h>
 
 
 #define MAX_INPUT_LENGTH 1024
@@ -39,11 +40,6 @@ typedef struct queue{
 }Queue;
 
 typedef struct shm_t {
-    // Queue * q_shm;
-    // pid_t* pid_arr;
-    // char line[MAX_LINE_LENGTH];
-    // FILE* f1;
-
     pid_t scheduler_pid;
     pid_t shell_pid;
     int size;
