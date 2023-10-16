@@ -50,7 +50,53 @@ Queue* q4;
 //Initialising the file descriptor for the shared memory
 int fd;
 
+// we are doing priority boosting after 5 timeslices
+int priority_boosting_constant=3;
+//counter for priority q boosting
+
+int num_sigalrm=0;
+
+
 Node* newnode ;
+
+void print_q(Queue * q)
+{
+
+     printf("starting q printing.....\n");
+    if (q==NULL)
+    {
+        printf("queue is null\n");
+        return;
+    }
+    else if (q->front==NULL)
+    {
+        printf("q is empty\n");
+        printf ("status of q->end %d\n",q->end==NULL);
+        return ;
+    }
+    // printf("cleared empty area\n");
+    Node * temp=q->front;
+    Process *p;
+    while(temp!=NULL)
+    {
+        p=temp->process_data;
+        printf("f1  %d\n",p->f1);
+        // printf("idhar toh aana chahiye\n");
+        int j=0;
+        printf("command : %d  ",p->com[0][0]);
+        while((p->com)[j]!=NULL)
+        {
+            printf(" %s ",(p->com)[j++]);
+
+        }
+        printf("\n");
+        temp=temp->next;
+        // printf("queue->front==temp  %d\n", q->front==temp);
+    }
+    printf("ending q printing....\n");
+}
+
+
 
 
 //Function to return the queue pointer according to the queue_number passed as an argument
@@ -229,6 +275,7 @@ void add_processes()
         count++;
         
 
+        
         //Enqueuing the newly created process according to the new process' priority number
         if (x == 1)
             enqueue(com_arr, q1);
@@ -334,7 +381,7 @@ void set_waiting_time(Queue* q){
 
 void scheduler_syscall_handler(int signum){
     if(signum == SIGALRM){ //Catches SIGALRM signal and handles it accordingly
-    
+        num_sigalrm++;
         //Iterates over all the processes in the process_arr
         for (int i=0;i<current_process_counter;i++){
             int status;
@@ -352,12 +399,47 @@ void scheduler_syscall_handler(int signum){
             set_waiting_time(return_queue(i));
         }
         
+
+        if (num_sigalrm==priority_boosting_constant)
+        {
+            
+            Queue *q;
+            Process * p;
+
+            for (int i=4;i>=2;i--)
+            {
+                q=return_queue(i);
+                while (!isEmpty(q))
+                {
+                    p=dequeue(q);
+                    p->priority_no=1;
+                    enqueue(p,q1);
+                    
+                }
+                
+                }
+
+            num_sigalrm=0;
+            
+
+        }
+
+        
+        
+        
         //Enqueuing the new processes that were sent during the tslice
         add_processes();
         //Iterating over the processes which were running during the previous tslice
         for(int i = 0;i<current_process_counter;i++){
             //Checking if the process is an unfinished process
             if(process_arr[i]->f1 == 1) {
+                if (num_sigalrm==priority_boosting_constant)
+                {
+                    process_arr[i]->priority_no=1;
+                    enqueue(process_arr[i],q1);
+
+                    continue;
+                }
                 //After every tslice, all processes are moved to the lower priority queue
                 //Enqueuing the unfinished processes into the appropriate queues by updating their priority numbers and folowing the above rule
                 if(process_arr[i]->priority_no == 4) enqueue(process_arr[i],return_queue(4));
@@ -367,6 +449,7 @@ void scheduler_syscall_handler(int signum){
                 }                
             }
         }
+        
 
         //Reseting the number of running processes in the process_arr
         current_process_counter=0;
@@ -518,6 +601,7 @@ void round_robin(){
                 printf("Error executing clock_gettime!");
                 exit(1);
             }
+           
             //If the process at the ith index of the process_arr has never been executed before, then create a new process and lauch the new process
             create_process_and_run2(p,i);
         }
