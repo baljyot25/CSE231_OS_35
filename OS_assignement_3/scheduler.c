@@ -50,6 +50,8 @@ Queue* q4;
 //Initialising the file descriptor for the shared memory
 int fd;
 
+Node* newnode ;
+
 
 //Function to return the queue pointer according to the queue_number passed as an argument
 Queue* return_queue(int i){
@@ -84,7 +86,7 @@ void create_queue(){
 void enqueue(Process* p, Queue* q){
 
     //Creating a new process node using malloc
-    Node* newnode = (Node*)malloc(sizeof(Node));
+    newnode = (Node*)malloc(sizeof(Node));
 
     //Checking for malloc error
     if(!newnode){
@@ -109,12 +111,14 @@ void enqueue(Process* p, Queue* q){
     if(!(q)->end){
         //Executes if queue is empty
         (q)->front = (q)->end = newnode;
+        
         return;
     }
 
     //Executes if queue is not empty
     (q)->end->next = newnode;
     (q)->end = newnode;
+    
 }
 
 //Function to dequeue a process from a specified queue which it takes as an argument and finally returns the dequeued process
@@ -330,7 +334,7 @@ void set_waiting_time(Queue* q){
 
 void scheduler_syscall_handler(int signum){
     if(signum == SIGALRM){ //Catches SIGALRM signal and handles it accordingly
-   
+    
         //Iterates over all the processes in the process_arr
         for (int i=0;i<current_process_counter;i++){
             int status;
@@ -388,7 +392,7 @@ void scheduler_syscall_handler(int signum){
                 fclose(f1);
 
                 //Sending a signal to the shell that the scheduler process is over and that shell should terminate as well
-                kill(shm->shell_pid,SIGTERM);
+                
 
                 //Cleanup before exiting from the scheduler
                 free(q1);
@@ -396,8 +400,32 @@ void scheduler_syscall_handler(int signum){
                 free(q3);
                 free(q4);
                 free(line);
+                free(com_arr->com_name);
+                for (int i=0;i<256;i++)
+                {
+                    free(com_arr->com[i]);
+                }
+                free(com_arr);
+                free(process_arr);
+                
+        
+                if (kill(shm->shell_pid,SIGTERM)!=0)
+                {
+                    perror("Error sending signal");
+
+                }
                 munmap(shm, sizeof(shm_t));
-                close(fd);
+                if (munmap(shm, sizeof(shm_t)) == -1)
+                {
+                    perror("munmap");
+                    close(fd);
+                    exit(1);
+                }
+                if (close(fd) == -1)
+                {
+                    perror("close");
+                    exit(1);
+                }
                 sem_destroy(&sem);
                 exit(10);
             }
@@ -433,6 +461,7 @@ int create_process_and_run2(Process* p, int i) {
 }
 
 void round_robin(){
+    
     //Initialising the p variable to store the process from the process_arr
     Process* p = NULL;
 
@@ -505,17 +534,35 @@ int main()
     struct sigaction sig1;
     memset(&sig1, 0, sizeof(sig1));
     sig1.sa_handler = scheduler_syscall_handler;
-    signal(SIGALRM, scheduler_syscall_handler);
+    
+    if (signal(SIGALRM, scheduler_syscall_handler) == SIG_ERR)
+    {
+        perror("Error setting up signal handler");
+        // return 1;
+        exit(5);
+    }
+
    
    // this step is to ensure that when scheduler receives sigint from shell , it does not terminates its child.
-    signal(SIGINT, SIG_IGN);
+    
+    if (signal(SIGINT, SIG_IGN) == SIG_ERR)
+    {
+        perror("Error setting up signal handler");
+        exit(5);
+        // return 1;
+    }
+
 
     struct sigaction sig2;
     memset(&sig2, 0, sizeof(sig2));
     sig2.sa_sigaction = sigchld_handler;
     sig2.sa_flags = SA_NOCLDSTOP | SA_SIGINFO;
     sigemptyset(&sig2.sa_mask);
-    sigaction(SIGCHLD, &sig2, NULL);
+    
+    if (sigaction(SIGCHLD, &sig2, NULL)!= 0)
+    {
+        perror("Unable to set up signal handler");
+    }
 
 
     //Opens the history.txt file and checks if the file has been opened correctly or not
@@ -527,12 +574,28 @@ int main()
 
     //Create sthe link to the shared memory of the shell and links the scheduler variables with the shared memory
     fd = shm_open("/my_shared_memory", O_CREAT | O_RDWR, 0666);
-    ftruncate(fd, sizeof(shm_t));
+    if (fd == -1)
+    {
+        printf("Error opening file descriptor for shared memory!\n");
+        exit(1);
+    }
+   
+    if (ftruncate(fd, sizeof(shm_t)) != 0)
+    {
+        printf("Ftruncate Error\n!");
+        exit(2);
+    };
     shm =(shm_t*)mmap(NULL, sizeof(shm_t), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (shm == MAP_FAILED)
+    {
+        printf("Mmap failure!\n");
+        exit(3);
+    }
     ncpus=shm->ncpus_shm;
     tslice=shm->tslice_shm;
     shm->is_shell_exit=0;
     create_queue();
+    
 
     //Initialisng the semaphore required in the sigchld_handler function
     sem_init(&sem,0,1);
@@ -551,9 +614,21 @@ int main()
 
     //Initialises the process_arr variable used to store the processes in the running queue.
     process_arr=(Process**)malloc(ncpus*sizeof(Process));
+    if (process_arr==NULL)
+    {
+        printf("Memory allocation error\n");
+        exit(5);
+    }
     for (int i = 0; i < ncpus; i++) {
         process_arr[i] = (Process*)malloc(sizeof(Process));
+        if (process_arr[i]==NULL)
+        {
+            printf("Memory allocation error\n");
+            exit(5);
+        }
+
     }
+    
 
     //Starting the first tslice
     set_alarm(); 
