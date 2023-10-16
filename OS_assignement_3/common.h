@@ -12,10 +12,11 @@
 #include <fcntl.h>
 #include <semaphore.h>
 
-
+//Defining max values
 #define MAX_INPUT_LENGTH 1024
 #define MAX_LINE_LENGTH 10000
 
+//Structure definition of process
 typedef struct process{
     char* com_name;
     char* com[MAX_INPUT_LENGTH];
@@ -28,17 +29,20 @@ typedef struct process{
     int f1;
 }Process;
 
+//Structure defintion of a node in a queue
 typedef struct node{
     Process * process_data;
     struct node* next;
 }Node; 
 
+//Structure defintion of a queue
 typedef struct queue{
     Node* front;
     Node* end;
     int tslice;
 }Queue;
 
+//Structure defintion of the shared memory
 typedef struct shm_t {
     int is_shell_exit;
     pid_t scheduler_pid;
