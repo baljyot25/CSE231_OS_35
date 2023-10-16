@@ -1,20 +1,22 @@
 #include "common.h"
 
+//Initialising the variable for shared memory
 shm_t *shm;
-pid_t *pid_arr;
-int count = 0;
-Process *com_arr;
+
+//Initialising the variables for storing ncpus and tslice
 int ncpus = 0;
 double tslice = 0.0;
-int fd;
-char line[MAX_LINE_LENGTH];
 
+//Initialising the file descriptor for the shared memory
+int fd;
+
+//Initialising the char array to store the normal commands given by the user to the shell for executing without the use of scheduler
 char *normal_com[MAX_INPUT_LENGTH];
-// FILE *f1;
 
 // Function to parse the command and transform it into a 2d array for easier use
 int split(char *command)
 {
+    //Below portion of the code checks if the command entered by the user only has whitespaces
     int checker = 0;
     int flag = 0;
     while (command[checker] != '\0')
@@ -29,44 +31,30 @@ int split(char *command)
     if (flag == 0)
         return 0;
 
+    //This portion of the code is used to tokenise each word of the entered command for ease of execution
     int i = 0;
     // Reading the first word of the given command and storing it in s1
     char *s1 = strtok(command, " ");
-    // shm->n_process = 0;
-    if (s1 != NULL && strcmp(s1, "submit") == 0)
-    {
-        while (1)
-        {
+    if (s1 != NULL && strcmp(s1, "submit") == 0){
+        //This block executes if the command entered is supposed to be scheduled in the scheduler
+        while (1){
             s1 = strtok(NULL, " ");
             if (s1 == NULL)
                 break;
             int j = 0;
-            // printf("s1: %s\n",s1);
-            while (s1[j] != 0)
-            {
+            while (s1[j] != 0){
                 (shm->process_name)[shm->size][i][j] = s1[j];
-
-                // printf("%d\n",(shm->process_name)[shm->size][i][j]);
                 j++;
             }
             (shm->process_name)[shm->size][i][j] = '\0';
-            // printf("j %d\n",j);
             i++;
         }
-
         (shm->size)++;
         (shm->n_process)++;
-        // int r = fputs(shm->line, f1);
-        // fflush(f1);
-        // if(r == EOF){
-        //     printf("Fputs error!");
-        //     exit(1);
-        // }
-        // //Empties the line variable and readies it for more commands to be added for storing in the history
-        // memset(shm->line,'\0',sizeof(shm->line));
-        // count += 1;
-        return 1;
+        return 1; //Returns 1 if the command is to be executed by the scheduler
     }
+
+    //Comes to this portion of the code if the command entered is not supposed to be scheduled in the scheduler
     normal_com[i++] = s1;
     while (s1 != NULL)
     {
@@ -75,206 +63,137 @@ int split(char *command)
         i++;
     }
     normal_com[i] = NULL;
-    return 2;
+    return 2; //Returns 2 if the command is to be executed normally without the scheduler
 }
 
-// Function to run the command entered
-int create_process_and_run1()
-{
+// Function to run the command entered (for commands which are not to be scheduled)
+int create_process_and_run1(){
     int status = fork();
-    if (status < 0)
-    {
+    if (status < 0){
         printf("Process terminated successfully!");
         exit(1);
     }
-    else if (status == 0)
-    {
+    else if (status == 0){
         // Executes the command by using the inbuilt execvp function
-        if (execvp(normal_com[0], normal_com) == -1)
-        {
+        if (execvp(normal_com[0], normal_com) == -1){
             fprintf(stderr, "Error executing command.\n");
             exit(1);
         }
     }
-    else
-    {
-        waitpid(status, NULL, 0);
-    }
+    else waitpid(status, NULL, 0); //Waits for the child process to finish execution
 }
 
-// pid_t scheduler_pid=0;
 // Handles the default and custom signals.
 static void syscall_handler(int signum)
 {
-    if (signum == SIGTERM)
-    {
-        // printf("Program terminated!\n");
-        // wait(NULL);
-        // sleep(10);
-
-        if (munmap(shm, sizeof(shm_t)) == -1)
-        {
+    //Handles the sys_call SIGTERM
+    if (signum == SIGTERM){
+        //Unmappping the shared memory region
+        if (munmap(shm, sizeof(shm_t)) == -1){
             perror("munmap");
             close(fd);
             exit(1);
         }
 
         // Close the shared memory file descriptor
-        if (close(fd) == -1)
-        {
+        if (close(fd) == -1){
             perror("close");
             exit(1);
         }
 
         // Unlink the shared memory object
-        if (shm_unlink("/my_shared_memory") == -1)
-        {
+        if (shm_unlink("/my_shared_memory") == -1){
             perror("shm_unlink");
             exit(1);
         }
         exit(0);
     }
-    if (signum == SIGINT)
-    {
-        // printf("\n\nscheduler pid %d\n\n", shm->scheduler_pid);
-        // kill(shm->scheduler_pid,SIGTERM);
-        // cleanup();
-
-        // int r = fputs(shm->line, f1);
-        // fflush(f1);
-        // if(r == EOF){
-        //     printf("Fputs error!");
-        //     exit(1);
-        // }
-        // //Empties the line variable and readies it for more commands to be added for storing in the history
-        // memset(shm->line,'\0',sizeof(shm->line));
-        // history();
-        // printf("making is_shell_exi 1\n");
+    //Handles the sys_call SIGINT (which gets raised when the user does Ctrl-C)
+    if (signum == SIGINT){
         shm->is_shell_exit=1;
-        // if (kill(shm->scheduler_pid, SIGUSR2) != 0)
-        // {
-        //     perror("Error sending signal");
-        // }
-        // printf("scheduler pid %d\n",shm->scheduler_pid);
-        // sleep(10);
-        // wait(NULL);
-        // int status;
-        // exit(0);
-
-        while (1)
-        {
-        }
+        while (1){}
     }
 }
 
 // Loop for executing all the commands entered by the user at the terminal
 void shell_loop()
 {
-    // printf("bhai\n");
-
-    // Process * p=NULL;
-    // enqueue(p);
+    //Creating the shared memory region and checking for error
     fd = shm_open("/my_shared_memory", O_CREAT | O_RDWR, 0666);
-    if (fd == -1)
-    {
+    if (fd == -1){
         printf("Error opening file descriptor for shared memory!\n");
         exit(1);
     }
-    if (ftruncate(fd, sizeof(shm_t)) != 0)
-    {
+    //Allocating size of the shared memory region and checking for error
+    if (ftruncate(fd, sizeof(shm_t)) != 0){
         printf("Ftruncate Error\n!");
         exit(2);
-    };
+    }
+    //Mapping the shared memory region and checking for error
     shm = mmap(NULL, sizeof(shm_t), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (shm == MAP_FAILED)
-    {
+    if (shm == MAP_FAILED){
         printf("Mmap failure!\n");
         exit(3);
     }
-    // printf("bhai\n");
+
+    //Storing the values in the shared memory for the fields which are required by the scheduler
     shm->ncpus_shm = ncpus;
     shm->tslice_shm = tslice;
     shm->n_process = 0;
-    // create_queue();
     shm->is_shell_exit=0;
     shm->size = 0;
-    // for(int i = 0;i<MAX_LINE_LENGTH;i++){
-    //     (shm->line)[i] = '\0';
-    // }
-    // shm->f1 = f1;
-    // Setting the initial process array
-    for (int i = 0; i < 256; i++)
-    {
-        for (int j = 0; j < 64; j++)
-        {
-            for (int k = 0; k < 64; k++)
-            {
+    shm->shell_pid = getpid();
+
+    // Setting the initial process array in the shared memory
+    for (int i = 0; i < 256; i++){
+        for (int j = 0; j < 64; j++){
+            for (int k = 0; k < 64; k++){
                 (shm->process_name)[i][j][k] = '\0';
             }
         }
     }
 
-    // Initialisations for the Crtl-C handler function
-
+    // Initialisations for the sys_call handler function
     struct sigaction sig;
     memset(&sig, 0, sizeof(sig));
     sig.sa_handler = syscall_handler;
-    if (sigaction(SIGINT, &sig, NULL) != 0)
-    {
+    if (sigaction(SIGINT, &sig, NULL) != 0){
         perror("Unable to set up signal handler");
     }
-    // printf("signal error\n");
-    if (signal(SIGTERM, syscall_handler) == SIG_ERR)
-    {
+    if (signal(SIGTERM, syscall_handler) == SIG_ERR){
         perror("Error setting up signal handler");
-        // return 1;
     }
 
     int status = 1;
 
-    shm->shell_pid = getpid();
-    // printf("parent pid %d\n",shm->shell_pid);
-
-    double duration;
+    //Creating a new process
     int s1 = fork();
-    if (s1 < 0)
-    {
+    if (s1 < 0){ //Handles the abrupt termination of the child process
         printf("Scheduler initialisation failed!\n");
         exit(3);
     }
-    else if (s1 == 0)
-    {
+    else if (s1 == 0){
+        //Creating a grandchild process to launch the scheduler process in the background inside the previously created child process
         int s2 = fork();
-
-        if (s2 < 0)
-        {
+        if (s2 < 0){ //Handles the abrupt termination of the grandchild process
             printf("Scheduler initialisation failed!\n");
             exit(2);
         }
-        else if (s2 == 0)
-        {
+        else if (s2 == 0){
             char *data[2] = {"./scheduler", NULL};
-            // printf("grandchild\n");
             shm->scheduler_pid = getpid();
-            // printf("bhai %d  %d\n",shm->scheduler_pid,getpid());
-            if (execvp(data[0], data) == -1)
-            {
+            // Executes the scheduler process by using the inbuilt execvp function
+            if (execvp(data[0], data) == -1){
                 fprintf(stderr, "Error executing command.\n");
                 exit(1);
             }
         }
-        else
-        {
-            // printf("s2 %d", getpid());
+        else{ //The chidl exits by transferring all its resources to the grandchild process, thus making the grandchild process a background (orpahned) process
             _exit(0);
         }
     }
-    else
-    {
-        // sleep(2);
-
-        do
-        {
+    else{
+        do{
             // Takes input from the user for the command to be executed
             printf("\niiitd@system:~$ ");
             // Initialisation of the variable in which the command entered is stored
@@ -284,7 +203,7 @@ void shell_loop()
                 printf("Memory allocation error\n");
                 exit(5);
             }
-            // Stores the command enteres by the user in a variable "command"
+            // Stores the command entered by the user in a variable "command"
             if (fgets(command, MAX_INPUT_LENGTH, stdin) == NULL)
             {
                 free(command);
@@ -298,31 +217,23 @@ void shell_loop()
                 continue;
 
             // Tokenising the command entered
-            //  printf("before split\n");
             int type = split(command);
-            // printf("after split\n");
 
             // Checking the type of the command
-            if (type == 0)
-                continue; // Continue to next iteration if the command only contains whitespaces
-            // Run the command like a normal command without inserrting into queue if the entered command does not start with "submit"
-            else if (type == 2)
-            {
+            if (type == 0) continue; // Continue to next iteration if the command only contains whitespaces
+            else if (type == 2){
+                // Run the command like a normal command without inserting into queue if the entered command does not start with "submit"
                 create_process_and_run1();
             }
-            // else if(isEmpty() == 0){
-            //     printf("4\n");
-            //     raise(SIGUSR1);
-            // }
+            //Freeing the command char array to store the next command being given to the shell by the user
             free(command);
         } while (status);
     }
-
-    // Deleting the shared memory
 }
 
 int main(int argc, char const *argv[])
 {
+    //Accepts the ncups and tslice from the command line as input
     ncpus = atoi(argv[1]);
     tslice = atoi(argv[2]);
 
