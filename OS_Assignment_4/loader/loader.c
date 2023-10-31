@@ -3,11 +3,11 @@
 Elf32_Ehdr *ehdr;
 Elf32_Phdr *phdr;
 int fd;
-int f1 = 0;
 int i = 0;
 size_t offset_vmem;
-size_t size;
 void* virtual_mem;
+jmp_buf jb1;
+
 /*
  * release memory and other cleanups
  */
@@ -17,44 +17,43 @@ void loader_cleanup() {
   free(phdr);
   phdr = NULL;
   close(fd);
-  munmap(virtual_mem,size);
-  offset_vmem = 0;
+  // munmap(virtual_mem,size);
 }
 
-void sigsegv_handler(int signum){
+void sigsegv_handler(int signum, siginfo_t *info, void *context){
   if(signum == SIGSEGV){
+    printf("sigsegv invoked!\n");
+    //positioning the file pointer to the section from where the program header table starts
     lseek(fd,(ehdr->e_phoff + i*ehdr->e_phentsize),SEEK_SET);
     //initialising phdr
     phdr = (Elf32_Phdr*)malloc(sizeof(Elf32_Phdr));
     //reading the segment and making the phdr point to the segment
     if(read(fd,phdr,sizeof(Elf32_Phdr)) != sizeof(Elf32_Phdr)){
-      printf("The program header couldn't be read!\n");
-      loader_cleanup();
+      printf("The program header couldn't be read!");
       exit(3);
     }
-    //comparing to see f the phdr p_type is of type "PT_LOAD" (type "PT_LOAD" has value 1)
-    if(phdr->p_type == PT_LOAD){
-      //checking whether the e_entry lies in the segment corresponding to the prgram header
-      if((phdr->p_vaddr <= ehdr->e_entry) && (ehdr->e_entry < (phdr->p_vaddr + phdr->p_memsz))){
-        int num = (phdr->p_memsz)/4096;
-        printf("Num: %d\n",num);
-        size = (num*4096 == phdr->p_memsz) ? num*4096 : (num+1)*4096;
-        printf("Size: %d\n",size);
-        virtual_mem = mmap((void*)(phdr->p_vaddr),size, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_FIXED, fd, phdr->p_offset);
-        //throws error virtual_mem is not allocated properly
-        if(virtual_mem == MAP_FAILED){
-          printf("Error in defining vitual_mem!\n");
-          loader_cleanup();
-          exit(4);
-        }
-        //Setting the offset value, from the virtual_mem starting address, where the e_entry is located inside the virtual_mem
-        offset_vmem = ehdr->e_entry - phdr->p_vaddr;
-        f1=1;
-        printf("4\n");
-      }
+    void* fault_addr = info->si_addr;
+    int num = (phdr->p_memsz)/4096;
+    printf("Internal frag: %d\n",4096 - phdr->p_memsz);
+    virtual_mem = mmap((void*)phdr->p_vaddr,(num*4096 == phdr->p_memsz) ? num*4096 : (num+1)*4096, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_FIXED, fd, phdr->p_offset);
+    //throws error virtual_mem is not allocated properly
+    if(virtual_mem == MAP_FAILED){
+      printf("Error in defining vitual_mem!\n");
+      loader_cleanup();
+      exit(4);
     }
-    if(f1 == 0) {printf("5\n");i++;}
-    printf("6\n");
+    printf("e_entry: %d\n",ehdr->e_entry);
+    printf("p_vaddr: %d\n",phdr->p_vaddr);
+    printf("upper limit: %d\n",phdr->p_vaddr + phdr->p_memsz);
+    if((ehdr->e_entry >= phdr->p_vaddr) && (ehdr->e_entry < (phdr->p_vaddr + phdr->p_memsz))){
+      printf("4\n");
+      offset_vmem = ehdr->e_entry - phdr->p_vaddr;
+      printf("offset: %d\n",offset_vmem);
+
+      // break;
+    }
+    i++;
+    printf("end\n");
   }
 }
 
@@ -63,7 +62,14 @@ void sigsegv_handler(int signum){
  */
 void load_and_run_elf(char** exe) {
   //Registering the signal handler for segmentation fault
-  signal(SIGSEGV,sigsegv_handler);
+  struct sigaction sig;
+  memset(&sig, 0, sizeof(sig));
+  sig.sa_sigaction = sigsegv_handler;
+  sig.sa_flags = SA_SIGINFO;
+  sigemptyset(&sig.sa_mask);
+  sigaction(SIGSEGV,&sig,NULL);
+  
+  //Creating a file descriptor for the ELF file passed as an argument in the main function
   fd = open(exe[1], O_RDONLY);
   if(fd != -1){
     //initialising ehdr
@@ -73,19 +79,15 @@ void load_and_run_elf(char** exe) {
       loader_cleanup();
       exit(1);
     }
-    while(1){
-      printf("While\n");
-      int (*_start)() = (int (*)())((char*)ehdr->e_entry);
-      int result = _start();
-
-      if(f1) {printf("break\n");break;}
-    }
+    int (*_start)() = (int (*)())((char*)ehdr->e_entry);
+    _start();
   }
   else{
     printf("Error in opening the elf file!\n");
   }
-  //Typecasting the e_entry address to the start function pointer to facilitate the function call in the subsequent lines
+  printf("out of loop\n");
   int (*_start)() = (int (*)())((char*)virtual_mem + offset_vmem);
+  //Typecasting the e_entry address to the start function pointer to facilitate the function call in the subsequent lines
   int result = _start();
   printf("User _start return value = %d\n",result);
 }
