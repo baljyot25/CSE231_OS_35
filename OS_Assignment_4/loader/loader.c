@@ -6,7 +6,6 @@ int fd;
 int i = 0;
 size_t offset_vmem;
 void* virtual_mem;
-jmp_buf jb1;
 
 /*
  * release memory and other cleanups
@@ -24,6 +23,10 @@ void sigsegv_handler(int signum, siginfo_t *info, void *context){
   if(signum == SIGSEGV){
     printf("sigsegv invoked!\n");
     //positioning the file pointer to the section from where the program header table starts
+    printf("info: %p\n",info->si_addr);
+    // for(){
+
+    // }
     lseek(fd,(ehdr->e_phoff + i*ehdr->e_phentsize),SEEK_SET);
     //initialising phdr
     phdr = (Elf32_Phdr*)malloc(sizeof(Elf32_Phdr));
@@ -32,7 +35,7 @@ void sigsegv_handler(int signum, siginfo_t *info, void *context){
       printf("The program header couldn't be read!");
       exit(3);
     }
-    void* fault_addr = info->si_addr;
+    // void* fault_addr = info->si_addr;
     int num = (phdr->p_memsz)/4096;
     printf("Internal frag: %d\n",4096 - phdr->p_memsz);
     virtual_mem = mmap((void*)phdr->p_vaddr,(num*4096 == phdr->p_memsz) ? num*4096 : (num+1)*4096, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_FIXED, fd, phdr->p_offset);
@@ -49,7 +52,6 @@ void sigsegv_handler(int signum, siginfo_t *info, void *context){
       printf("4\n");
       offset_vmem = ehdr->e_entry - phdr->p_vaddr;
       printf("offset: %d\n",offset_vmem);
-
       // break;
     }
     i++;
