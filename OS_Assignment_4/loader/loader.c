@@ -24,38 +24,67 @@ void sigsegv_handler(int signum, siginfo_t *info, void *context){
     printf("sigsegv invoked!\n");
     //positioning the file pointer to the section from where the program header table starts
     printf("info: %p\n",info->si_addr);
-    // for(){
-
+    void* fault_addr = info->si_addr;
+    printf("1\n");
+    for(int i = 0;i<ehdr->e_phnum;i++){
+      printf("1\n");
+      if((fault_addr >= (void*)phdr->p_vaddr) && (fault_addr < (void*)(phdr->p_vaddr + phdr->p_memsz))){
+        printf("2\n");
+        lseek(fd,(ehdr->e_phoff + i*ehdr->e_phentsize),SEEK_SET);
+        printf("3\n");
+        //initialising phdr
+        phdr = (Elf32_Phdr*)malloc(sizeof(Elf32_Phdr));
+        //reading the segment and making the phdr point to the segment
+        if(read(fd,phdr,sizeof(Elf32_Phdr)) != sizeof(Elf32_Phdr)){
+          printf("The program header couldn't be read!");
+          exit(3);
+        }
+        printf("4\n");
+        int num = (phdr->p_memsz)/4096;
+        printf("Internal frag: %d\n",4096 - phdr->p_memsz);
+        virtual_mem = mmap((void*)phdr->p_vaddr,(num*4096 == phdr->p_memsz) ? num*4096 : (num+1)*4096, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_FIXED, fd, phdr->p_offset);
+        //throws error virtual_mem is not allocated properly
+        if(virtual_mem == MAP_FAILED){
+          printf("Error in defining vitual_mem!\n");
+          loader_cleanup();
+          exit(4);
+        }
+        printf("5\n");
+      }  
+      if(fault_addr == (void*)ehdr->e_entry){
+        printf("6\n");
+        offset_vmem = ehdr->e_entry - phdr->p_vaddr;
+        printf("offset: %d\n",offset_vmem);
+      }
+    }
+    // lseek(fd,(ehdr->e_phoff + i*ehdr->e_phentsize),SEEK_SET);
+    // //initialising phdr
+    // phdr = (Elf32_Phdr*)malloc(sizeof(Elf32_Phdr));
+    // //reading the segment and making the phdr point to the segment
+    // if(read(fd,phdr,sizeof(Elf32_Phdr)) != sizeof(Elf32_Phdr)){
+    //   printf("The program header couldn't be read!");
+    //   exit(3);
     // }
-    lseek(fd,(ehdr->e_phoff + i*ehdr->e_phentsize),SEEK_SET);
-    //initialising phdr
-    phdr = (Elf32_Phdr*)malloc(sizeof(Elf32_Phdr));
-    //reading the segment and making the phdr point to the segment
-    if(read(fd,phdr,sizeof(Elf32_Phdr)) != sizeof(Elf32_Phdr)){
-      printf("The program header couldn't be read!");
-      exit(3);
-    }
-    // void* fault_addr = info->si_addr;
-    int num = (phdr->p_memsz)/4096;
-    printf("Internal frag: %d\n",4096 - phdr->p_memsz);
-    virtual_mem = mmap((void*)phdr->p_vaddr,(num*4096 == phdr->p_memsz) ? num*4096 : (num+1)*4096, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_FIXED, fd, phdr->p_offset);
-    //throws error virtual_mem is not allocated properly
-    if(virtual_mem == MAP_FAILED){
-      printf("Error in defining vitual_mem!\n");
-      loader_cleanup();
-      exit(4);
-    }
-    printf("e_entry: %d\n",ehdr->e_entry);
-    printf("p_vaddr: %d\n",phdr->p_vaddr);
-    printf("upper limit: %d\n",phdr->p_vaddr + phdr->p_memsz);
-    if((ehdr->e_entry >= phdr->p_vaddr) && (ehdr->e_entry < (phdr->p_vaddr + phdr->p_memsz))){
-      printf("4\n");
-      offset_vmem = ehdr->e_entry - phdr->p_vaddr;
-      printf("offset: %d\n",offset_vmem);
-      // break;
-    }
-    i++;
-    printf("end\n");
+    // int num = (phdr->p_memsz)/4096;
+    // printf("Internal frag: %d\n",4096 - phdr->p_memsz);
+    // virtual_mem = mmap((void*)phdr->p_vaddr,(num*4096 == phdr->p_memsz) ? num*4096 : (num+1)*4096, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_FIXED, fd, phdr->p_offset);
+    // //throws error virtual_mem is not allocated properly
+    // if(virtual_mem == MAP_FAILED){
+    //   printf("Error in defining vitual_mem!\n");
+    //   loader_cleanup();
+    //   exit(4);
+    // }
+    // printf("e_entry: %d\n",ehdr->e_entry);
+    // printf("p_vaddr: %d\n",phdr->p_vaddr);
+    // printf("upper limit: %d\n",phdr->p_vaddr + phdr->p_memsz);
+    // if((ehdr->e_entry >= phdr->p_vaddr) && (ehdr->e_entry < (phdr->p_vaddr + phdr->p_memsz))){
+    //   printf("4\n");
+    //   offset_vmem = ehdr->e_entry - phdr->p_vaddr;
+    //   printf("offset: %d\n",offset_vmem);
+    //   // break;
+    // }
+    // i++;
+    // printf("end\n");
   }
 }
 
