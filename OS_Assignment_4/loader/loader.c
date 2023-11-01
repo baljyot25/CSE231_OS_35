@@ -3,7 +3,7 @@
 Elf32_Ehdr *ehdr;
 Elf32_Phdr *phdr;
 int fd;
-int i = 0;
+int j = 0;
 size_t offset_vmem;
 void* virtual_mem;
 
@@ -21,41 +21,44 @@ void loader_cleanup() {
 
 void sigsegv_handler(int signum, siginfo_t *info, void *context){
   if(signum == SIGSEGV){
+    j++;
     printf("sigsegv invoked!\n");
     //positioning the file pointer to the section from where the program header table starts
-    printf("info: %p\n",info->si_addr);
+    printf("info: %d\n",(int)info->si_addr);
     void* fault_addr = info->si_addr;
-    printf("1\n");
+    // printf("1\n");
     for(int i = 0;i<ehdr->e_phnum;i++){
-      printf("1\n");
-      if((fault_addr >= (void*)phdr->p_vaddr) && (fault_addr < (void*)(phdr->p_vaddr + phdr->p_memsz))){
-        printf("2\n");
-        lseek(fd,(ehdr->e_phoff + i*ehdr->e_phentsize),SEEK_SET);
-        printf("3\n");
-        //initialising phdr
-        phdr = (Elf32_Phdr*)malloc(sizeof(Elf32_Phdr));
-        //reading the segment and making the phdr point to the segment
-        if(read(fd,phdr,sizeof(Elf32_Phdr)) != sizeof(Elf32_Phdr)){
-          printf("The program header couldn't be read!");
-          exit(3);
-        }
-        printf("4\n");
+      lseek(fd,(ehdr->e_phoff + i*ehdr->e_phentsize),SEEK_SET);
+      if(read(fd,phdr,sizeof(Elf32_Phdr)) != sizeof(Elf32_Phdr)){
+        printf("The program header couldn't be read!");
+        exit(3);
+      }
+      // printf("1\n");
+      printf("%d phdr->p_vaddr : %d\n",i,phdr->p_vaddr);
+      if((fault_addr >= (void*)phdr->p_vaddr) && (fault_addr <= (void*)(phdr->p_vaddr + phdr->p_memsz))){
+        printf("P_memsz: %d\n",phdr->p_memsz);
         int num = (phdr->p_memsz)/4096;
-        printf("Internal frag: %d\n",4096 - phdr->p_memsz);
-        virtual_mem = mmap((void*)phdr->p_vaddr,(num*4096 == phdr->p_memsz) ? num*4096 : (num+1)*4096, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_FIXED, fd, phdr->p_offset);
+        printf("Num: %d\n",num);
+        printf("Internal frag: %d\n",4096 - phdr->p_memsz%4096);
+        int size = (num*4096 == phdr->p_memsz) ? num*4096 : (num+1)*4096;
+        printf("size: %d\n",size);
+        virtual_mem = mmap((void*)phdr->p_vaddr,size, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_FIXED, fd, phdr->p_offset);
+        printf("1\n");
         //throws error virtual_mem is not allocated properly
         if(virtual_mem == MAP_FAILED){
           printf("Error in defining vitual_mem!\n");
           loader_cleanup();
           exit(4);
         }
+        printf("here\n");
+        if(fault_addr == (void*)ehdr->e_entry){
+          offset_vmem = ehdr->e_entry - phdr->p_vaddr;
+          printf("offset: %d\n",offset_vmem);
+        }
         printf("5\n");
+        break;
       }  
-      if(fault_addr == (void*)ehdr->e_entry){
-        printf("6\n");
-        offset_vmem = ehdr->e_entry - phdr->p_vaddr;
-        printf("offset: %d\n",offset_vmem);
-      }
+      
     }
     // lseek(fd,(ehdr->e_phoff + i*ehdr->e_phentsize),SEEK_SET);
     // //initialising phdr
@@ -110,14 +113,16 @@ void load_and_run_elf(char** exe) {
       loader_cleanup();
       exit(1);
     }
-    int (*_start)() = (int (*)())((char*)ehdr->e_entry);
-    _start();
+    // initialising phdr
+    phdr = (Elf32_Phdr*)malloc(sizeof(Elf32_Phdr));
+    // int (*_start)() = (int (*)())((char*)ehdr->e_entry);
+    // _start();
   }
   else{
     printf("Error in opening the elf file!\n");
   }
   printf("out of loop\n");
-  int (*_start)() = (int (*)())((char*)virtual_mem + offset_vmem);
+  int (*_start)() = (int (*)())((char*)ehdr->e_entry);
   //Typecasting the e_entry address to the start function pointer to facilitate the function call in the subsequent lines
   int result = _start();
   printf("User _start return value = %d\n",result);
