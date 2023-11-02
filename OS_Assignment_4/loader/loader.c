@@ -111,7 +111,7 @@ void load_and_run_elf(char** exe) {
   //Creating a file descriptor for the ELF file passed as an argument in the main function
   fd = open(exe[1], O_RDONLY);
   if(fd != -1){
-    //initialising ehdr
+    //initialising ehdr 
     ehdr = (Elf32_Ehdr*)malloc(sizeof(Elf32_Ehdr));
     if(read(fd,ehdr,sizeof(Elf32_Ehdr)) != sizeof(Elf32_Ehdr)){
       printf("The elf file header couldn't be read!\n");
