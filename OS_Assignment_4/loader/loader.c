@@ -39,6 +39,7 @@ void sigsegv_handler(int signum, siginfo_t *info, void *context){
     num_page_faults++;
     //Typecasting the address at which the segmentation faul was caught
     void* fault_addr = info->si_addr;
+    printf("info: %d\n",(int)info->si_addr);
     //Iterating over all the program headers of the various segments in the ELF Executable file.
     for(int j = 0;j<ehdr->e_phnum;j++){
       //positioning the file pointer to the section from where the program header table starts
@@ -51,9 +52,27 @@ void sigsegv_handler(int signum, siginfo_t *info, void *context){
       if((fault_addr >= (void*)phdr->p_vaddr) && (fault_addr <= (void*)(phdr->p_vaddr + phdr->p_memsz))){
         //Calculating the index of the page to be allocated
         int i=((int)(fault_addr - phdr->p_vaddr))/4096;
+        printf("memsz %d\n",phdr->p_memsz/4096);
+
+
+        printf("phdr off %d\n",phdr->p_offset);
+        printf("phdr->p_filesz %d\n phdr->p_offset+(i)*4096 %d\n",phdr->p_filesz, phdr->p_offset+(i)*4096);
+        virtual_mem = mmap((void*)(phdr->p_vaddr+i*4096),4096, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_ANONYMOUS|MAP_PRIVATE, 0,0);
+        lseek(fd, phdr->p_offset+(i)*4096,SEEK_SET);
+        printf("lng condition %d\n",phdr->p_filesz-(i)*4096>=4096?4096:phdr->p_filesz-(i)*4096>=0?phdr->p_filesz-(i)*4096:0);
+          
+        read(fd,virtual_mem,phdr->p_filesz- (i)*4096>=4096?4096:phdr->p_filesz- (i)*4096>=0?phdr->p_filesz-(i)*4096:0 );
+
+
         //Checking to see if the page to be allocated is for .bss uninitialised data
-        if (phdr->p_offset+phdr->p_filesz<=phdr->p_offset+i*4096) virtual_mem= mmap((void*)(phdr->p_vaddr+i*4096),4096, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, 0,0); 
-        else virtual_mem = mmap((void*)(phdr->p_vaddr+i*4096),4096, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_FIXED, fd,  (__off_t) phdr->p_offset+i*4096);
+        // if (phdr->p_offset+phdr->p_filesz<=phdr->p_offset+i*4096) virtual_mem= mmap((void*)(phdr->p_vaddr+i*4096),4096, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, 0,0); 
+        // else
+        // {
+        //   printf("phdr off %d\n",phdr->p_offset);
+        //   virtual_mem = mmap((void*)(phdr->p_vaddr+i*4096),4096, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_FIXED, fd,  (__off_t) phdr->p_offset+(i)*4096);
+        //   lseek(fd, phdr->p_offset+(i)*4096,SEEK_SET);
+        //   read(fd,virtual_mem,phdr->p_filesz- phdr->p_offset+(i)*4096>=4096?4096:phdr->p_filesz- phdr->p_offset+(i)*4096>=4096);
+        // } 
         //Checking for if mmap failed.
         if(virtual_mem == MAP_FAILED){
           printf("Error in defining vitual_mem!\n");
