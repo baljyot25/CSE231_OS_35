@@ -21,9 +21,7 @@ struct node{
 void loader_cleanup() {
   //Freeing the ehdr and phdr
   if(ehdr != NULL) free(ehdr);
-  else printf("Ehdr is already NULL!");
   if(phdr != NULL) free(phdr);
-  else printf("Ehdr is already NULL!");
   if(close(fd) == -1){
     printf("Error closing the file!");
     exit(1);
@@ -32,7 +30,10 @@ void loader_cleanup() {
   //Unmapping all the physical memory that had been allocated for running the ELF executable
   while(head!=NULL){
     struct node* temp = head;
-    munmap(temp->virtual_mem,4096);
+    if (munmap(temp->virtual_mem,4096)!=0)
+    {
+      printf("Munmap fialed");
+    }
     head = head->next;
     free(temp);
   }
