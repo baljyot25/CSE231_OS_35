@@ -85,8 +85,34 @@ void sigsegv_handler(int signum, siginfo_t *info, void *context){
           loader_cleanup();
           exit(1);
         }          
+        printf("ternary op ans %d\n", (phdr->p_filesz - (i)*4096) >= 4096 ? 4096 : ((phdr->p_filesz - (i)*4096>=0) ? phdr->p_filesz-(i)*4096 : 0));
         //Reading the appropriate number of bytes from the elf file and storing it in virtual_mem
-        read(fd,virtual_mem,(phdr->p_filesz - (i)*4096) >= 4096 ? 4096 : ((phdr->p_filesz - (i)*4096>=0) ? phdr->p_filesz-(i)*4096 : 0));
+        int byte_Read=read(fd,virtual_mem,(phdr->p_filesz - (i)*4096) >= 4096 ? 4096 : ((phdr->p_filesz - (i)*4096>=0) ? phdr->p_filesz-(i)*4096 : 0));
+        printf("bytes read %d\n",byte_Read);
+        if ((phdr->p_offset+phdr->p_filesz<=phdr->p_offset+i*4096))
+        {
+          //bss segment , no bytes needs to be read.
+          if (byte_Read!=0)
+          {
+            printf("Not able to read content of the file into the virtual mem,bss\n");
+            loader_cleanup();
+            exit(1);
+
+          }
+
+        }
+        else{
+           printf("ternary op ans %d\n", (phdr->p_filesz - (i)*4096) >= 4096 ? 4096 : ((phdr->p_filesz - (i)*4096>=0) ? phdr->p_filesz-(i)*4096 : 0));
+            printf("bytes read %d\n",byte_Read);
+          //non bss segment , bytes returned by the condition should be read.
+          if (byte_Read !=((phdr->p_filesz - (i)*4096) >= 4096 ? 4096 : ((phdr->p_filesz - (i)*4096>=0) ? phdr->p_filesz-(i)*4096 : 0)))
+          {
+            printf("Not able to read content of the file into the virtual mem,nonbss\n");
+            loader_cleanup();
+            exit(1);
+
+          }
+        }
 
         //Adding the newly created virtual_mem for the page into the linked list which is later used to munmap all the virtual_mems allocated after the execution of the ELF executable has finished.
         struct node* temp = (struct node*)malloc(sizeof(struct node));
