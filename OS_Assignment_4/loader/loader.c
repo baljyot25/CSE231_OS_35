@@ -8,17 +8,31 @@ void* virtual_mem;
 int num_page_faults=0;
 int num_page_allocs = 0;
 int internal_frag = 0;
+struct node* head = NULL;
+
+struct node{
+  void* virtual_mem;
+  struct node* next;
+}; 
 
 /*
  * release memory and other cleanups
  */
 void loader_cleanup() {
+  //Freeing the ehdr and phdr
   free(ehdr);
   ehdr = NULL;
   free(phdr);
   phdr = NULL;
   close(fd);
-  // munmap(virtual_mem,size);
+
+  //Unmapping all the physical memory that had been allocated for running the ELF executable
+  while(head!=NULL){
+    struct node* temp = head;
+    munmap(temp->virtual_mem,4096);
+    head = head->next;
+    free(temp);
+  }
 }
 
 //Function to return the final report after the execution of the elf file finishes.
@@ -39,46 +53,53 @@ void sigsegv_handler(int signum, siginfo_t *info, void *context){
     num_page_faults++;
     //Typecasting the address at which the segmentation faul was caught
     void* fault_addr = info->si_addr;
-    printf("info: %d\n",(int)info->si_addr);
     //Iterating over all the program headers of the various segments in the ELF Executable file.
     for(int j = 0;j<ehdr->e_phnum;j++){
       //positioning the file pointer to the section from where the program header table starts
-      lseek(fd,(ehdr->e_phoff + j*ehdr->e_phentsize),SEEK_SET);
+      if(lseek(fd,(ehdr->e_phoff + j*ehdr->e_phentsize),SEEK_SET) == -1){
+        printf("Error seeking file!");
+        loader_cleanup();
+        exit(1);
+      }
       //Reading the program header details pointed to by the ietrator into the global variable "phdr"
       if(read(fd,phdr,sizeof(Elf32_Phdr)) != sizeof(Elf32_Phdr)){
         printf("The program header couldn't be read!");
-        exit(3);
+        loader_cleanup();
+        exit(1);
       }
       if((fault_addr >= (void*)phdr->p_vaddr) && (fault_addr <= (void*)(phdr->p_vaddr + phdr->p_memsz))){
         //Calculating the index of the page to be allocated
         int i=((int)(fault_addr - phdr->p_vaddr))/4096;
-        printf("memsz %d\n",phdr->p_memsz/4096);
 
-
-        printf("phdr off %d\n",phdr->p_offset);
-        printf("phdr->p_filesz %d\n phdr->p_offset+(i)*4096 %d\n",phdr->p_filesz, phdr->p_offset+(i)*4096);
+        //Allocating space in the physical memory of size 4096 bytes for storing the content from the elf file
         virtual_mem = mmap((void*)(phdr->p_vaddr+i*4096),4096, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_ANONYMOUS|MAP_PRIVATE, 0,0);
-        lseek(fd, phdr->p_offset+(i)*4096,SEEK_SET);
-        printf("lng condition %d\n",phdr->p_filesz-(i)*4096>=4096?4096:phdr->p_filesz-(i)*4096>=0?phdr->p_filesz-(i)*4096:0);
-          
-        read(fd,virtual_mem,phdr->p_filesz- (i)*4096>=4096?4096:phdr->p_filesz- (i)*4096>=0?phdr->p_filesz-(i)*4096:0 );
-
-
-        //Checking to see if the page to be allocated is for .bss uninitialised data
-        // if (phdr->p_offset+phdr->p_filesz<=phdr->p_offset+i*4096) virtual_mem= mmap((void*)(phdr->p_vaddr+i*4096),4096, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, 0,0); 
-        // else
-        // {
-        //   printf("phdr off %d\n",phdr->p_offset);
-        //   virtual_mem = mmap((void*)(phdr->p_vaddr+i*4096),4096, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_FIXED, fd,  (__off_t) phdr->p_offset+(i)*4096);
-        //   lseek(fd, phdr->p_offset+(i)*4096,SEEK_SET);
-        //   read(fd,virtual_mem,phdr->p_filesz- phdr->p_offset+(i)*4096>=4096?4096:phdr->p_filesz- phdr->p_offset+(i)*4096>=4096);
-        // } 
         //Checking for if mmap failed.
         if(virtual_mem == MAP_FAILED){
           printf("Error in defining vitual_mem!\n");
           loader_cleanup();
-          exit(4);
+          exit(1);
         }
+        //Positioning the file pointer to the place from where the 4096 bytes will be allocated on to the physical memory
+        if(lseek(fd, phdr->p_offset+(i)*4096,SEEK_SET) == -1){
+          printf("Error seeking file!");
+          loader_cleanup();
+          exit(1);
+        }          
+        //Reading the appropriate number of bytes from the elf file and storing it in virtual_mem
+        read(fd,virtual_mem,(phdr->p_filesz - (i)*4096) >= 4096 ? 4096 : ((phdr->p_filesz - (i)*4096>=0) ? phdr->p_filesz-(i)*4096 : 0));
+
+        //Adding the newly created virtual_mem for the page into the linked list which is later used to munmap all the virtual_mems allocated after the execution of the ELF executable has finished.
+        struct node* temp = (struct node*)malloc(sizeof(struct node));
+        if(temp == NULL){
+          printf("Memory allocation failed for linked list node!");
+          loader_cleanup();
+          exit(1);
+        }
+        temp->virtual_mem = virtual_mem;
+        temp->next = NULL;
+        if(head == NULL) head = temp;
+        else {temp->next = head; head = temp;}
+                
         //Incrementing the total number of pages allocated.
         num_page_allocs++;        
         //Incrementing the total internal fragmentation only if its the last page of the segment
@@ -107,6 +128,10 @@ void load_and_run_elf(char** exe) {
   if(fd != -1){
     //initialising ehdr
     ehdr = (Elf32_Ehdr*)malloc(sizeof(Elf32_Ehdr));
+    if(ehdr == NULL){
+      printf("Memory allocating failed for ehdr!");
+      exit(1);
+    }
     if(read(fd,ehdr,sizeof(Elf32_Ehdr)) != sizeof(Elf32_Ehdr)){
       printf("The elf file header couldn't be read!\n");
       loader_cleanup();
@@ -114,6 +139,10 @@ void load_and_run_elf(char** exe) {
     }
     //initialising phdr
     phdr = (Elf32_Phdr*)malloc(sizeof(Elf32_Phdr));
+    if(phdr == NULL){
+      printf("Memory allocation failed for phdr!");
+      exit(1);
+    }
   }
   else{
     printf("Error in opening the elf file!\n");
