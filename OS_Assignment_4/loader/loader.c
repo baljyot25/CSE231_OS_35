@@ -20,11 +20,14 @@ struct node{
  */
 void loader_cleanup() {
   //Freeing the ehdr and phdr
-  free(ehdr);
-  ehdr = NULL;
-  free(phdr);
-  phdr = NULL;
-  close(fd);
+  if(ehdr != NULL) free(ehdr);
+  else printf("Ehdr is already NULL!");
+  if(phdr != NULL) free(phdr);
+  else printf("Ehdr is already NULL!");
+  if(close(fd) == -1){
+    printf("Error closing the file!");
+    exit(1);
+  }
 
   //Unmapping all the physical memory that had been allocated for running the ELF executable
   while(head!=NULL){
@@ -85,32 +88,22 @@ void sigsegv_handler(int signum, siginfo_t *info, void *context){
           loader_cleanup();
           exit(1);
         }          
-        printf("ternary op ans %d\n", (phdr->p_filesz - (i)*4096) >= 4096 ? 4096 : ((phdr->p_filesz - (i)*4096>=0) ? phdr->p_filesz-(i)*4096 : 0));
         //Reading the appropriate number of bytes from the elf file and storing it in virtual_mem
         int byte_Read=read(fd,virtual_mem,(phdr->p_filesz - (i)*4096) >= 4096 ? 4096 : ((phdr->p_filesz - (i)*4096>=0) ? phdr->p_filesz-(i)*4096 : 0));
-        printf("bytes read %d\n",byte_Read);
-        if ((phdr->p_offset+phdr->p_filesz<=phdr->p_offset+i*4096))
-        {
+        if ((phdr->p_offset+phdr->p_filesz<=phdr->p_offset+i*4096)){
           //bss segment , no bytes needs to be read.
-          if (byte_Read!=0)
-          {
+          if (byte_Read!=0){
             printf("Not able to read content of the file into the virtual mem,bss\n");
             loader_cleanup();
             exit(1);
-
           }
-
         }
         else{
-           printf("ternary op ans %d\n", (phdr->p_filesz - (i)*4096) >= 4096 ? 4096 : ((phdr->p_filesz - (i)*4096>=0) ? phdr->p_filesz-(i)*4096 : 0));
-            printf("bytes read %d\n",byte_Read);
           //non bss segment , bytes returned by the condition should be read.
-          if (byte_Read !=((phdr->p_filesz - (i)*4096) >= 4096 ? 4096 : ((phdr->p_filesz - (i)*4096>=0) ? phdr->p_filesz-(i)*4096 : 0)))
-          {
+          if (byte_Read != ((phdr->p_filesz - (i)*4096) >= 4096 ? 4096 : ((phdr->p_filesz - (i)*4096>=0) ? phdr->p_filesz-(i)*4096 : 0))){
             printf("Not able to read content of the file into the virtual mem,nonbss\n");
             loader_cleanup();
             exit(1);
-
           }
         }
 
@@ -141,6 +134,10 @@ void sigsegv_handler(int signum, siginfo_t *info, void *context){
  * Load and run the ELF executable file
  */
 void load_and_run_elf(char** exe) {
+  if(exe == NULL){
+    printf("Exe is NULL!");
+    exit(1);
+  }
   //Registering the signal handler for segmentation fault
   struct sigaction sig;
   memset(&sig, 0, sizeof(sig));
