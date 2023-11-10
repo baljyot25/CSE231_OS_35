@@ -41,29 +41,6 @@ void* thread_func2(void* ptr){
   return NULL;
 }
 
-void parallel_for(int low, int high, std::function<void(int)> &&lambda){
-  auto func_start = std::chrono::high_resolution_clock::now();
-  int result;
-  if (high < 1024) {
-    thread_args args[1] = {{low, high, 0, 0, lambda, NULL}};
-    thread_func1((void*) &args[0]);
-  } else {
-    pthread_t tid[2];
-    thread_args args[2];
-    int chunk = high/2;
-    for (int i=0; i<2; i++) {
-      args[i] = {i * chunk, (i + 1) * chunk, 0, 0,lambda, NULL};
-      pthread_create(&tid[i],NULL,thread_func1,(void*) &args[i]);
-    }
-    for (int i=0; i<2; i++) {
-      pthread_join(tid[i] , NULL);
-    }
-  }
-  auto func_end = std::chrono::high_resolution_clock::now();
-  auto time = std::chrono::duration_cast<std::chrono::microseconds>(func_end - func_start);
-  std::cout << "Function duration: " << time.count()/1000.0 << " milliseconds" << std::endl;
-}
-
 void parallel_for(int low, int high, std::function<void(int)> &&lambda, int numThreads){
   int result;
   auto func_start = std::chrono::high_resolution_clock::now();
