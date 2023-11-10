@@ -3,6 +3,7 @@
 #include <functional>
 #include <stdlib.h>
 #include <cstring>
+#include <chrono>
 
 int user_main(int argc, char **argv);
 
@@ -41,6 +42,7 @@ void* thread_func2(void* ptr){
 }
 
 void parallel_for(int low, int high, std::function<void(int)> &&lambda){
+  auto func_start = std::chrono::high_resolution_clock::now();
   int result;
   if (high < 1024) {
     thread_args args[1] = {{low, high, 0, 0, lambda, NULL}};
@@ -57,10 +59,14 @@ void parallel_for(int low, int high, std::function<void(int)> &&lambda){
       pthread_join(tid[i] , NULL);
     }
   }
+  auto func_end = std::chrono::high_resolution_clock::now();
+  auto time = std::chrono::duration_cast<std::chrono::microseconds>(func_end - func_start);
+  std::cout << "Function duration: " << time.count()/1000.0 << " milliseconds" << std::endl;
 }
 
 void parallel_for(int low, int high, std::function<void(int)> &&lambda, int numThreads){
   int result;
+  auto func_start = std::chrono::high_resolution_clock::now();
   if (high < 1024) {
     thread_args args[1] = {{low, high, 0, 0, lambda, NULL}};
     thread_func1((void*) &args[0]);
@@ -76,10 +82,14 @@ void parallel_for(int low, int high, std::function<void(int)> &&lambda, int numT
       pthread_join(tid[i] , NULL);
     }
   }
+  auto func_end = std::chrono::high_resolution_clock::now();
+  auto time = std::chrono::duration_cast<std::chrono::microseconds>(func_end - func_start);
+  std::cout << "Function duration: " << time.count()/1000.0 << " milliseconds" << std::endl;
 }
 
 void parallel_for(int low1, int high1, int low2, int high2,std::function<void(int, int)> &&lambda, int numThreads){
   int result;
+  auto func_start = std::chrono::high_resolution_clock::now();
   if (high1 < 1024 && high2 < 1024) {
     thread_args args[1] = {{low1, high1, low2, high2, NULL, lambda}};
     thread_func2((void*) &args[0]);
@@ -96,6 +106,9 @@ void parallel_for(int low1, int high1, int low2, int high2,std::function<void(in
       pthread_join(tid[i] , NULL);
     }
   }
+  auto func_end = std::chrono::high_resolution_clock::now();
+  auto time = std::chrono::duration_cast<std::chrono::microseconds>(func_end - func_start);
+  std::cout << "Function duration: " << time.count()/1000.0 << " milliseconds" << std::endl;
 }
 
 
@@ -130,5 +143,3 @@ int main(int argc, char **argv) {
 }
 
 #define main user_main
-
-
