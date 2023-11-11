@@ -52,7 +52,15 @@ void parallel_for(int low, int high, std::function<void(int)> &&lambda, int numT
     thread_args args[numThreads];
     int chunk = high/numThreads;
     for (int i=0; i<numThreads; i++) {
-      args[i] = {i * chunk, (i + 1) * chunk, 0, 0,lambda, NULL};
+      if (i==numThreads-1)
+      {
+        args[i]={i*chunk, high,0,0,lambda,NULL};
+      }
+      else{
+       args[i] = {i * chunk, (i + 1) * chunk, 0, 0,lambda, NULL};
+
+
+      }
       pthread_create(&tid[i],NULL,thread_func1,(void*) &args[i]);
     }
     for (int i=0; i<numThreads; i++) {
@@ -76,7 +84,15 @@ void parallel_for(int low1, int high1, int low2, int high2,std::function<void(in
     int chunk = high1/numThreads;
     // int chunk2 = high2/numThreads;
     for (int i=0; i<numThreads; i++) {
-      args[i] = {i*chunk, (i + 1)*chunk, low2, high2, NULL, lambda};
+      if (i==numThreads-1)
+      {
+        args[i]={i*chunk, high1,low2,high2,NULL,lambda};
+      }
+      else{
+        args[i] = {i*chunk, (i + 1)*chunk, low2, high2, NULL, lambda};
+
+      }
+      
       pthread_create(&tid[i],NULL,thread_func2,(void*) &args[i]);
     }
     for (int i=0; i<numThreads; i++) {
