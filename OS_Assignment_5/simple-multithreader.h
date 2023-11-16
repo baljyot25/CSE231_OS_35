@@ -73,17 +73,21 @@ void parallel_for(int low, int high, std::function<void(int)> &&lambda, int numT
     pthread_t tid[numThreads];
     thread_args args[numThreads];
     int chunk = (high-low)/numThreads;//ceil//need to change
+    int mod=(high-low)%numThreads;
     std::cout<<"parallel for 1chunk "<<chunk<<std::endl;
+    int cntr=0;
     for (int i=0; i<numThreads; i++) {
       if (i==numThreads-1)
       {
-        args[i]={(i*chunk)+low, high+low,-1,-1,1,high-low,lambda,NULL};
+        args[i]={(i*chunk)+low+cntr, high+low,-1,-1,1,high-low,lambda,NULL};
       }
       else{
-       args[i] = {(i * chunk)+low, ((i + 1) * chunk)+low,-1,-1, 1, high-low,lambda, NULL};
+       args[i] = {(i * chunk)+low+cntr, (((i + 1) * chunk)+low + cntr) + (mod > 0 ?( cntr++==0 || 1 ): 0),-1,-1, 1, high-low,lambda, NULL};
+       
 
 
       }
+      mod--;
       pthread_create(&tid[i],NULL,thread_func1,(void*) &args[i]);
       // std::cout<<"inside loop "<<std::endl;
     }
@@ -115,18 +119,21 @@ void parallel_for(int low1, int high1, int low2, int high2,std::function<void(in
     thread_args args[numThreads];
     int chunk =(((high1-low1)*(high2-low2)) )/numThreads;
     int end=((high1-low1)*(high2-low2));
+    int mod=((high1-low1)*(high2-low2))%numThreads;
     cout<<"chunk "<<chunk<<endl;
     cout<<"end "<<end<<endl;
     // int chunk2 = high2/numThreads;
+    int cntr=0;
     for (int i=0; i<numThreads; i++) {
       if (i==numThreads-1)
       {
-        args[i]={i*chunk, end,low1,low2,high2-low2,high1-low1,NULL,lambda};
+        args[i]={i*chunk+cntr, end,low1,low2,high2-low2,high1-low1,NULL,lambda};
       }
       else{
-        args[i] = {i*chunk, (i + 1)*chunk, low1, low2,high2-low2,high1-low1, NULL, lambda};
+        args[i] = {i*chunk+cntr, (i + 1)*chunk+ cntr+(mod > 0 ?( cntr++==0 || 1 ): 0), low1, low2,high2-low2,high1-low1, NULL, lambda};
 
       }
+      mod--;
       
       pthread_create(&tid[i],NULL,thread_func1,(void*) &args[i]);
     }
