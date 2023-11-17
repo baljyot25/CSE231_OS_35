@@ -140,6 +140,8 @@ void parallel_for(int low, int high, std::function<void(int)> &&lambda, int numT
 }
 
 void parallel_for(int low1, int high1, int low2, int high2,std::function<void(int, int)> &&lambda, int numThreads){
+  //Assuming high1 and low1 are for rows and high2 and low2 are for the columns of the entered matrix
+
   //Handling the case when there aren't enough threads for parallelisation
   if (numThreads==1){
     cout<<"Invalid number of threads"<<endl;
