@@ -18,7 +18,7 @@ void demonstration(std::function<void()> && lambda) {
 typedef struct thread_args{
   int start;
   int end;
-  // bool is;
+  
   int low1,low2;//-1 for 1d array
   int num_rows;//1 in case of 1 d array
   int num_cols;//num of elements incase of 1d array
@@ -57,15 +57,15 @@ void* thread_func1(void* ptr){
 // }
 
 void initialise(int numThreads, int low1, int high1, int low2, int high2, int flag){
-  tid = (pthread_t*)malloc(numThreads*sizeof(pthread_t));
+  tid = (pthread_t*) malloc(numThreads*sizeof(pthread_t));
   args = (thread_args*)malloc(numThreads*sizeof(thread_args));
-  if(flag == 0){
-    int chunk = (high1-low1)/numThreads;//ceil//need to change
-    int mod=(high1-low1)%numThreads;
+  if(flag == 0){  
+    chunk = (high1-low1)/numThreads;//ceil//need to change
+    mod=(high1-low1)%numThreads;
   }
   else{
-    int chunk = (((high1-low1) * (high2-low2))) / numThreads;
-    int mod = ((high1-low1) * (high2-low2)) % numThreads;
+    chunk = (((high1-low1) * (high2-low2))) / numThreads;
+    mod = ((high1-low1) * (high2-low2)) % numThreads;
   }
 }
 
@@ -82,28 +82,24 @@ void wait_and_cleanup_function(int numThreads){
 void parallel_for(int low, int high, std::function<void(int)> &&lambda, int numThreads){
     // int result;
     auto func_start = std::chrono::high_resolution_clock::now();
-    if (numThreads==1) {//not creating a thread as 1 thread is already for the main function
-        thread_args args[1] = {{low, high,-1,-1, 0, 0, lambda, NULL}};
-        thread_func1((void*) &args[0]);
-    } else {
-        numThreads--;
-        initialise(numThreads,low,high,0,0,0);
-        std::cout<<"parallel for 1 chunk "<<chunk<<std::endl;
-        int cntr=0;
-        for (int i=0; i<numThreads; i++) {
-        if (i==numThreads-1) args[i]={(i*chunk)+low+cntr, high+low,-1,-1,1,high-low,lambda,NULL};
-        else args[i] = {(i * chunk)+low+cntr, (((i + 1) * chunk)+low + cntr) + (mod > 0 ?( cntr++==0 || 1 ): 0),-1,-1, 1, high-low,lambda, NULL};
-        mod--;
-        pthread_create(&tid[i],NULL,thread_func1,(void*) &args[i]);
-        // std::cout<<"inside loop "<<std::endl;
-        }
-        // std::cout<<"out of loop "<<std::endl;
-        wait_and_cleanup_function(numThreads);
-        // std::cout<<"out of join "<<std::endl;
+    numThreads--;
+    initialise(numThreads,low,high,0,0,0);
+    std::cout<<"parallel for 1 chunk "<<chunk<<std::endl;
+    int cntr=0;
+    for (int i=0; i<numThreads; i++) {
+      if (i==numThreads-1) args[i]={(i*chunk)+low+cntr, high+low,-1,-1,1,high-low,lambda,NULL};
+      else args[i] = {(i * chunk)+low+cntr, (((i + 1) * chunk)+low + cntr) + (mod > 0 ?( cntr++==0 || 1 ): 0),-1,-1, 1, high-low,lambda, NULL};
+      mod--;
+      pthread_create(&tid[i],NULL,thread_func1,(void*) &args[i]);
+    // std::cout<<"inside loop "<<std::endl;
     }
-    auto func_end = std::chrono::high_resolution_clock::now();
-    auto time = std::chrono::duration_cast<std::chrono::microseconds>(func_end - func_start);
-    std::cout << "Function duration: " << time.count()/1000.0 << " milliseconds" << std::endl;
+    // std::cout<<"out of loop "<<std::endl;
+    wait_and_cleanup_function(numThreads);
+    // std::cout<<"out of join "<<std::endl;
+  
+  auto func_end = std::chrono::high_resolution_clock::now();
+  auto time = std::chrono::duration_cast<std::chrono::microseconds>(func_end - func_start);
+  cout << "Function duration: " << time.count()/1000.0 << " milliseconds" << std::endl;
 }
 
 void parallel_for(int low1, int high1, int low2, int high2,std::function<void(int, int)> &&lambda, int numThreads){
