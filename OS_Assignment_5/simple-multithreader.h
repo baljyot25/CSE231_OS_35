@@ -32,8 +32,16 @@ int chunk = 0;
 int mod = 0;
 
 void* thread_func1(void* ptr){
+  if (ptr==NULL){cout<<"Null Pointer passed to thread_func1 "<<endl;exit(0);}
   thread_args* t = ((thread_args*) ptr);
   std::cout<<"thread created :"<<t->start<<" "<<t->end<<std::endl;
+  if (t->num_rows==1)
+  {
+    if (t->lambda1==NULL){cout<<"NUll lambda1 function"<<endl;exit(0);}
+  }
+  else{
+    if (t->lambda2==NULL){cout<<"NUll lambda2 function"<<endl;exit(0);}
+  }
   for(int i = t->start; i < t->end;i++){
     if (t->num_rows==1){//1d array
     //  std::cout<<"main idhar hun"<<std::endl;
@@ -46,19 +54,13 @@ void* thread_func1(void* ptr){
   return NULL;
 }
 
-// void* thread_func2(void* ptr){
-//   thread_args* t = ((thread_args*) ptr);
-//   for(int i = t->low1; i < t->high1 ; i++){
-//     for(int j = t->low2 ; j < t->high2 ; j++){
-//       t->lambda2(i,j);
-//     }    
-//   }
-//   return NULL;
-// }
-
 void initialise(int numThreads, int low1, int high1, int low2, int high2, int flag){
   tid = (pthread_t*) malloc(numThreads*sizeof(pthread_t));
   args = (thread_args*)malloc(numThreads*sizeof(thread_args));
+  if (!tid || !args) {
+        cout<< "Error: Memory allocation failed"<<endl;
+        exit(0);
+    }
   if(flag == 0){  
     chunk = (high1-low1)/numThreads;//ceil//need to change
     mod=(high1-low1)%numThreads;
@@ -70,8 +72,11 @@ void initialise(int numThreads, int low1, int high1, int low2, int high2, int fl
 }
 
 void wait_and_cleanup_function(int numThreads){
-  for (int i=0; i<numThreads; i++) {
-    pthread_join(tid[i] , NULL);
+  for (int i=0; i<numThreads; i++)
+  {
+   if (pthread_join(tid[i], NULL) != 0) {
+        cout<< "Error: Failed to join thread"<<endl;exit(0);
+      }
   }
   free(tid);
   free(args);
@@ -90,7 +95,11 @@ void parallel_for(int low, int high, std::function<void(int)> &&lambda, int numT
       if (i==numThreads-1) args[i]={(i*chunk)+low+cntr, high+low,-1,-1,1,high-low,lambda,NULL};
       else args[i] = {(i * chunk)+low+cntr, (((i + 1) * chunk)+low + cntr) + (mod > 0 ?( cntr++==0 || 1 ): 0),-1,-1, 1, high-low,lambda, NULL};
       mod--;
-      pthread_create(&tid[i],NULL,thread_func1,(void*) &args[i]);
+      if(pthread_create(&tid[i],NULL,thread_func1,(void*) &args[i])!=0)
+      {
+        cout<<"Failed to create thread"<<endl;
+        exit(0);
+      }
     // std::cout<<"inside loop "<<std::endl;
     }
     // std::cout<<"out of loop "<<std::endl;
