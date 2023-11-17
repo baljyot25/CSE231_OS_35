@@ -15,7 +15,7 @@ void demonstration(std::function<void()> && lambda) {
   lambda();
 }
 
-//Creating 
+//Creating the structure to store the details for individual thread execution
 typedef struct thread_args{
   int start;
   int end;
@@ -42,10 +42,13 @@ void* thread_func1(void* ptr){
   thread_args* t = ((thread_args*) ptr);
 
   //Handles the case when the thread is created by the parallel_for function handling single for loop and the args passed does not contain the lambda function
-  if (t->num_rows==1) {if(t->lambda1==NULL){cout<<"NUll lambda1 function"<<endl;exit(0);}}
+  if (t->num_rows==1){
+    if (t->lambda1==NULL){cout<<"NUll lambda1 function"<<endl;exit(0);}
+  }
 
-  //Handles the case when the thread is created by the parallel_for function handling double for loops and the args passed does not contain the lambda function
-  else{if(t->lambda2==NULL){cout<<"NUll lambda2 function"<<endl;exit(0);}}
+  else{ //Handles the case when the thread is created by the parallel_for function handling double for loops and the args passed does not contain the lambda function
+    if (t->lambda2==NULL){cout<<"NUll lambda2 function"<<endl;exit(0);}
+  }
 
   //Iterating over the chunk size of the thread and performing the required calcs
   for(int i = t->start; i < t->end;i++){
@@ -80,7 +83,7 @@ void initialise(int numThreads, int low1, int high1, int low2, int high2, int fl
 //Function that waits for each thread to finish execution and frees all variables after all the threads finsih execution
 void wait_and_cleanup_function(int numThreads){
   //Waits for all the threads created to finsih their executions
-  for (int i=0; i<numThreads; i++) if(pthread_join(tid[i], NULL) != 0) cout<< "Error: Failed to join thread"<<endl;exit(0);
+  for (int i=0; i<numThreads; i++) {if(pthread_join(tid[i], NULL) != 0) {cout<< "Error: Failed to join thread"<<endl;exit(0);}}
 
   //Performing variable cleanups
   if(tid != NULL) free(tid);
