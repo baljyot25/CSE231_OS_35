@@ -18,7 +18,6 @@ void demonstration(std::function<void()> && lambda) {
 typedef struct thread_args{
   int start;
   int end;
-  
   int low1,low2;//-1 for 1d array
   int num_rows;//1 in case of 1 d array
   int num_cols;//num of elements incase of 1d array
@@ -30,6 +29,8 @@ pthread_t *tid;
 thread_args *args;
 int chunk = 0;
 int mod = 0;
+
+
 
 void* thread_func1(void* ptr){
   if (ptr==NULL){cout<<"Null Pointer passed to thread_func1 "<<endl;exit(0);}
@@ -92,8 +93,8 @@ void parallel_for(int low, int high, std::function<void(int)> &&lambda, int numT
     std::cout<<"parallel for 1 chunk "<<chunk<<std::endl;
     int cntr=0;
     for (int i=0; i<numThreads; i++) {
-      if (i==numThreads-1) args[i]={(i*chunk)+low+cntr, high+low,-1,-1,1,high-low,lambda,NULL};
-      else args[i] = {(i * chunk)+low+cntr, (((i + 1) * chunk)+low + cntr) + (mod > 0 ?( cntr++==0 || 1 ): 0),-1,-1, 1, high-low,lambda, NULL};
+      if (i==numThreads-1) args[i]={(i*chunk)+low+cntr, high,-1,-1,1,high-low,lambda,NULL};
+      else args[i] = {(i * chunk)+low+cntr, (((i + 1) * chunk)+low + cntr) + (mod > 0 ?( cntr++==0|| 1 ): 0),-1,-1, 1, high-low,lambda, NULL};
       mod--;
       if(pthread_create(&tid[i],NULL,thread_func1,(void*) &args[i])!=0)
       {
@@ -132,7 +133,12 @@ void parallel_for(int low1, int high1, int low2, int high2,std::function<void(in
       if (i==numThreads-1) args[i]={i*chunk+cntr, end,low1,low2,high2-low2,high1-low1,NULL,lambda};
       else args[i] = {i*chunk+cntr, (i + 1)*chunk+ cntr+(mod > 0 ?( cntr++==0 || 1 ): 0), low1, low2,high2-low2,high1-low1, NULL, lambda};
       mod--;
-      pthread_create(&tid[i],NULL,thread_func1,(void*) &args[i]);
+      if (pthread_create(&tid[i],NULL,thread_func1,(void*) &args[i])!=0)
+      {
+        cout<<"Failed to create thread"<<endl;
+        exit(0);
+
+      }
     }
     wait_and_cleanup_function(numThreads);
     auto func_end = std::chrono::high_resolution_clock::now();
