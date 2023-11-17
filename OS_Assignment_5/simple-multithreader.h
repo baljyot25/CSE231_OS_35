@@ -42,10 +42,10 @@ void* thread_func1(void* ptr){
   thread_args* t = ((thread_args*) ptr);
 
   //Handles the case when the thread is created by the parallel_for function handling single for loop and the args passed does not contain the lambda function
-  if (t->num_rows==1) if(t->lambda1==NULL){cout<<"NUll lambda1 function"<<endl;exit(0);}
+  if (t->num_rows==1) {if(t->lambda1==NULL){cout<<"NUll lambda1 function"<<endl;exit(0);}}
 
   //Handles the case when the thread is created by the parallel_for function handling double for loops and the args passed does not contain the lambda function
-  else if (t->lambda2==NULL){cout<<"NUll lambda2 function"<<endl;exit(0);}
+  else{if(t->lambda2==NULL){cout<<"NUll lambda2 function"<<endl;exit(0);}}
 
   //Iterating over the chunk size of the thread and performing the required calcs
   for(int i = t->start; i < t->end;i++){
